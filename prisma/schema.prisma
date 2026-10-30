@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  EDITOR
+  REVIEWER
+  VIEWER
+}
+
+enum SourceType {
+  RSS
+  BLOG
+  NEWS_API
+  MANUAL
+}
+
+enum SourceStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+enum ArticleStatus {
+  NEW
+  REVIEWED
+  SAVED
+  DISMISSED
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  brandProfile BrandProfile?
+  sources     ContentSource[]
+  articles    Article[]
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+}
+
+model Membership {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrganizationRole @default(EDITOR)
+  createdAt      DateTime         @default(now())
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId, role])
+}
+
+model BrandProfile {
+  id                String       @id @default(cuid())
+  organizationId    String       @unique
+  displayName       String
+  websiteUrl        String?
+  industry          String?
+  targetAudience    String?
+  brandVoice        String?
+  editorialGuidelines String?
+  preferredTopics   String[]     @default([])
+  prohibitedTopics  String[]     @default([])
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model ContentSource {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  url            String
+  type           SourceType
+  status         SourceStatus @default(ACTIVE)
+  lastFetchedAt  DateTime?
+  lastError      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  articles       Article[]
+
+  @@unique([organizationId, url])
+  @@index([organizationId, status])
+}
+
+model Article {
+  id             String        @id @default(cuid())
+  organizationId String
+  sourceId       String?
+  externalId     String?
+  canonicalUrl   String
+  title          String
+  description    String?
+  contentText    String?
+  author         String?
+  imageUrl       String?
+  publishedAt    DateTime?
+  discoveredAt   DateTime      @default(now())
+  status         ArticleStatus @default(NEW)
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source         ContentSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, canonicalUrl])
+  @@index([organizationId, status, discoveredAt])
+  @@index([sourceId, publishedAt])
+}
