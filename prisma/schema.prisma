@@ -101,6 +101,7 @@ model User {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   memberships   Membership[]
+  createdDrafts ContentDraft[] @relation("DraftCreator")
   accounts      Account[]
   sessions      Session[]
   assignedDrafts ContentDraft[] @relation("DraftAssignee")
@@ -227,7 +228,7 @@ model ContentDraft {
   updatedAt      DateTime      @updatedAt
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   sourceArticle  Article?      @relation(fields: [sourceArticleId], references: [id], onDelete: SetNull)
-  createdBy      User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdBy      User          @relation("DraftCreator", fields: [createdById], references: [id], onDelete: Restrict)
   assignedTo     User?         @relation("DraftAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   versions       DraftVersion[]
   comments       ReviewComment[]
