@@ -65,4 +65,24 @@ Build and test one vertical slice at a time. Start with the application foundati
 
 ## Local development
 
-The application scaffold and exact setup commands will be added with the first implementation commit.
+Requirements: Node.js 20.9+ and npm.
+
+```bash
+git clone https://github.com/neha-coditation/website-automation.git
+cd website-automation
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open http://localhost:3000. The current dashboard uses illustrative sample data; discovery, authentication, persistence, AI generation, and publishing are not connected yet.
+
+Useful checks:
+
+```bash
+npm run typecheck
+npm run lint
+npm run build
+```
+
+Never commit `.env.local` or provider credentials.
