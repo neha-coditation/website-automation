@@ -86,6 +86,8 @@ npm run db:migrate
 
 Use `npm run db:studio` to inspect the local database schema and records. Do not run migrations against production until the schema has been reviewed.
 
+The first discovery utility is available at `lib/discovery/parse-rss-feed.ts`. It parses already-fetched RSS 2.0 or Atom XML, normalizes article URLs, removes common tracking parameters, and skips entries without a usable URL or title. Network fetching is intentionally separate; a future source-fetching service must validate destinations and prevent server-side request forgery before requesting user-supplied feed URLs. Run its unit tests with `npm test`.
+
 Useful checks:
 
 ```bash

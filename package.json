@@ -10,14 +10,16 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test": "tsx --test lib/discovery/parse-rss-feed.test.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "@prisma/client": "6.19.3"
+    "@prisma/client": "6.19.3",
+    "rss-parser": "^3.13.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
@@ -27,6 +29,7 @@
     "eslint-config-next": "^15.5.0",
     "typescript": "^5.8.3",
     "@eslint/eslintrc": "^3.3.1",
-    "prisma": "6.19.3"
+    "prisma": "6.19.3",
+    "tsx": "^4.20.6"
   }
 }
