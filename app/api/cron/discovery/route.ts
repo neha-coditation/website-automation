@@ -13,11 +13,16 @@ function authorized(request: Request) {
 export async function POST(request: Request) {
   if (!process.env.CRON_SECRET) return Response.json({ error: "Discovery cron is not configured." }, { status: 503 });
   if (!authorized(request)) return Response.json({ error: "Unauthorized." }, { status: 401 });
+  const retryBefore = new Date(Date.now() - 5 * 60_000);
   const sources = await prisma.contentSource.findMany({
-    where: { status: { in: ["ACTIVE", "ERROR"] }, type: { in: ["RSS", "BLOG"] } },
+    where: {
+      status: { in: ["ACTIVE", "ERROR"] },
+      type: { in: ["RSS", "BLOG"] },
+      OR: [{ lastAttemptAt: null }, { lastAttemptAt: { lte: retryBefore } }],
+    },
     select: { id: true, organizationId: true },
     take: 10,
-    orderBy: { lastFetchedAt: "asc" },
+    orderBy: [{ lastAttemptAt: "asc" }, { createdAt: "asc" }],
   });
   const results: { sourceId: string; status: string; inserted?: number; updated?: number; error?: string }[] = [];
   for (const source of sources) {
