@@ -62,6 +62,11 @@ export async function POST(request: Request) {
       if (!account.isActive || !account.encryptedAccessToken || !account.scopes.includes("w_member_social") || (account.tokenExpiresAt && account.tokenExpiresAt <= new Date())) {
         return { error: "LinkedIn access token has expired. Reconnect the account before scheduling.", status: 409 as const };
       }
+      const claimed = await tx.contentDraft.updateMany({
+        where: { id: draft.id, organizationId: workspace.organization.id, status: ContentStatus.APPROVED },
+        data: { status: ContentStatus.SCHEDULED, scheduledAt },
+      });
+      if (!claimed.count) return { error: "Draft was scheduled by another request. Reload the calendar.", status: 409 as const };
       const post = await tx.scheduledPost.create({
         data: {
           organizationId: workspace.organization.id,
@@ -70,10 +75,6 @@ export async function POST(request: Request) {
           scheduledAt,
           idempotencyKey: randomUUID(),
         },
-      });
-      await tx.contentDraft.update({
-        where: { id: draft.id },
-        data: { status: ContentStatus.SCHEDULED, scheduledAt },
       });
       await tx.auditEvent.create({
         data: {
