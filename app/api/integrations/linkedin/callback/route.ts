@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
+import { OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
-import { assertRole, requireWorkspace } from "@/lib/workspace";\nimport { OrganizationRole } from "@prisma/client";
+import { assertRole, requireWorkspace } from "@/lib/workspace";
 
 type LinkedInToken = { access_token: string; expires_in: number; scope?: string };
 type LinkedInProfile = { sub: string; name?: string; picture?: string };
@@ -13,11 +14,13 @@ function resultRedirect(status: string) {
 
 export async function GET(request: Request) {
   try {
-    const workspace = await requireWorkspace();\n    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN]);
+    const workspace = await requireWorkspace();
+    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN]);
     const url = new URL(request.url);
     const code = url.searchParams.get("code");
     const state = url.searchParams.get("state");
     if (url.searchParams.has("error") || !code || !state) return resultRedirect("cancelled");
+
     const stateHash = createHash("sha256").update(state).digest("hex");
     const savedState = await prisma.socialOAuthState.findFirst({
       where: {
