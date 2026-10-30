@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { ContentStatus, PublishStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
+import { draftHtmlToText } from "@/lib/content/sanitize";
 import { LinkedInPublishError, publishLinkedInPost } from "@/lib/social/linkedin";
 
 function authorized(request: Request) {
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
         throw new Error("LinkedIn access token expired; reconnect the account.");
       }
       const token = decryptSecret(post.socialAccount.encryptedAccessToken);
-      const published = await publishLinkedInPost(token, post.socialAccount.providerAccountId, post.draft.body);
+      const published = await publishLinkedInPost(token, post.socialAccount.providerAccountId, draftHtmlToText(post.draft.body));
       await prisma.$transaction(async tx => {
         await tx.publishAttempt.create({
           data: {
