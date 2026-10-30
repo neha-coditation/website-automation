@@ -1,0 +1,41 @@
+name: Marketing Studio scheduled jobs
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/5 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger approved LinkedIn publishing queue
+        env:
+          SITE_URL: ${{ secrets.MARKETING_STUDIO_SITE_URL }}
+          CRON_SECRET: ${{ secrets.MARKETING_STUDIO_CRON_SECRET }}
+        run: |
+          test -n "$SITE_URL" || (echo "Missing MARKETING_STUDIO_SITE_URL secret" && exit 1)
+          test -n "$CRON_SECRET" || (echo "Missing MARKETING_STUDIO_CRON_SECRET secret" && exit 1)
+          curl --fail-with-body --silent --show-error --max-time 90 \
+            -X POST "$SITE_URL/api/cron/publish" \
+            -H "Authorization: Bearer $CRON_SECRET"
+
+  discovery:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '17,47 * * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger scheduled RSS discovery
+        env:
+          SITE_URL: ${{ secrets.MARKETING_STUDIO_SITE_URL }}
+          CRON_SECRET: ${{ secrets.MARKETING_STUDIO_CRON_SECRET }}
+        run: |
+          test -n "$SITE_URL" || (echo "Missing MARKETING_STUDIO_SITE_URL secret" && exit 1)
+          test -n "$CRON_SECRET" || (echo "Missing MARKETING_STUDIO_CRON_SECRET secret" && exit 1)
+          curl --fail-with-body --silent --show-error --max-time 180 \
+            -X POST "$SITE_URL/api/cron/discovery" \
+            -H "Authorization: Bearer $CRON_SECRET"
