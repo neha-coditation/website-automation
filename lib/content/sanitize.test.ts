@@ -9,5 +9,5 @@ test("removes scripts, event handlers and unsafe URL schemes", () => {
 });
 
 test("converts rich text to plain text for social publishing", () => {
-  assert.equal(draftHtmlToText("<h2>Launch</h2><p>Useful &amp; clear</p><ul><li>One</li></ul>"), "LaunchUseful & clearOne");
+  assert.equal(draftHtmlToText("<h2>Launch</h2><p>Useful &amp; clear</p><ul><li>One</li></ul>"), "Launch\nUseful & clear\n• One");
 });
