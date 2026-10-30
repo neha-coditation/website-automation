@@ -8,9 +8,7 @@ type Context = { params: Promise<{ draftId: string }> };
 export async function POST(request: Request, context: Context) {
   try {
     const workspace = await requireWorkspace();
-    if (![OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR].includes(workspace.role)) {
-      return Response.json({ error: "You do not have permission to rewrite content." }, { status: 403 });
-    }
+    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);
     if (!process.env.OPENAI_API_KEY) return Response.json({ error: "AI generation is not configured." }, { status: 503 });
     const { draftId } = await context.params;
     const input = await request.json() as { instruction?: string; expectedVersion?: number };
