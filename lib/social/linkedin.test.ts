@@ -21,3 +21,37 @@ test("rejects empty or oversized post content before network access", async () =
     (error: unknown) => error instanceof LinkedInPublishError && /1–3,000/.test(error.message),
   );
 });
+
+
+test("marks server errors as uncertain and rate limits as safely retryable", async () => {
+  const originalFetch = globalThis.fetch;
+  process.env.LINKEDIN_API_VERSION = "202601";
+  try {
+    globalThis.fetch = async () => new Response("temporary provider error", { status: 503 });
+    await assert.rejects(
+      () => publishLinkedInPost("token", "person-id", "Hello"),
+      (error: unknown) => error instanceof LinkedInPublishError && error.outcomeUncertain && !error.retryable,
+    );
+    globalThis.fetch = async () => new Response("rate limited", { status: 429 });
+    await assert.rejects(
+      () => publishLinkedInPost("token", "person-id", "Hello"),
+      (error: unknown) => error instanceof LinkedInPublishError && error.retryable && !error.outcomeUncertain,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("treats transport failures as uncertain to prevent duplicate posts", async () => {
+  const originalFetch = globalThis.fetch;
+  process.env.LINKEDIN_API_VERSION = "202601";
+  try {
+    globalThis.fetch = async () => { throw new Error("socket reset"); };
+    await assert.rejects(
+      () => publishLinkedInPost("token", "person-id", "Hello"),
+      (error: unknown) => error instanceof LinkedInPublishError && error.outcomeUncertain && !error.retryable,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
