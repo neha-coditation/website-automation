@@ -10,7 +10,12 @@ export async function GET() {
       where: { organizationId: workspace.organization.id },
       include: {
         draft: { select: { id: true, title: true, status: true, channel: true } },
-        socialAccount: { select: { id: true, provider: true, displayName: true } },\n        attempts: { orderBy: { attemptNumber: "desc" }, take: 5, select: { attemptNumber: true, status: true, responseCode: true, errorMessage: true, finishedAt: true } },
+        socialAccount: { select: { id: true, provider: true, displayName: true } },
+        attempts: {
+          orderBy: { attemptNumber: "desc" },
+          take: 5,
+          select: { attemptNumber: true, status: true, responseCode: true, errorMessage: true, finishedAt: true },
+        },
       },
       orderBy: { scheduledAt: "asc" },
       take: 100,
@@ -41,7 +46,10 @@ export async function POST(request: Request) {
       if (draft.status !== ContentStatus.APPROVED) {
         return { error: "Only explicitly approved content can be scheduled.", status: 409 as const };
       }
-      const approval = await tx.approvalEvent.findFirst({ where: { draftId: draft.id, action: "APPROVED" }, select: { id: true } });
+      const approval = await tx.approvalEvent.findFirst({
+        where: { draftId: draft.id, action: "APPROVED" },
+        select: { id: true },
+      });
       if (!approval) return { error: "An approval record is required before scheduling.", status: 409 as const };
       const account = await tx.socialAccount.findFirst({
         where: { id: input.socialAccountId, organizationId: workspace.organization.id, provider: "LINKEDIN" },
@@ -59,9 +67,19 @@ export async function POST(request: Request) {
           idempotencyKey: randomUUID(),
         },
       });
-      await tx.contentDraft.update({ where: { id: draft.id }, data: { status: ContentStatus.SCHEDULED, scheduledAt } });
+      await tx.contentDraft.update({
+        where: { id: draft.id },
+        data: { status: ContentStatus.SCHEDULED, scheduledAt },
+      });
       await tx.auditEvent.create({
-        data: { organizationId: workspace.organization.id, actorId: workspace.userId, action: "SCHEDULED", entityType: "ScheduledPost", entityId: post.id, metadata: { draftId: draft.id, scheduledAt: scheduledAt.toISOString() } },
+        data: {
+          organizationId: workspace.organization.id,
+          actorId: workspace.userId,
+          action: "SCHEDULED",
+          entityType: "ScheduledPost",
+          entityId: post.id,
+          metadata: { draftId: draft.id, scheduledAt: scheduledAt.toISOString() },
+        },
       });
       return { post };
     });
