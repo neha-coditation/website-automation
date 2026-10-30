@@ -11,7 +11,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test": "tsx --test lib/**/*.test.ts"
+    "test": "tsx --test lib/**/*.test.ts",
+    "db:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@next-auth/prisma-adapter": "^1.0.7",
