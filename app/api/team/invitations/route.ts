@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return Response.json({ error: "Enter a valid email address." }, { status: 400 });
     }
-    if (![OrganizationRole.ADMIN, OrganizationRole.EDITOR, OrganizationRole.REVIEWER, OrganizationRole.VIEWER].includes(role)) {
+    if (!new Set<OrganizationRole>([OrganizationRole.ADMIN, OrganizationRole.EDITOR, OrganizationRole.REVIEWER, OrganizationRole.VIEWER]).has(role)) {
       return Response.json({ error: "Choose an allowed team role." }, { status: 400 });
     }
     if (workspace.role === OrganizationRole.ADMIN && role === OrganizationRole.ADMIN) {
