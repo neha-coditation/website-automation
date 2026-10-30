@@ -58,7 +58,7 @@ export async function publishLinkedInPost(
     );
   }
 
-  const responseBody = await response.text();
+  const responseBody = await response.text().catch(() => "");
   if (!response.ok) {
     throw new LinkedInPublishError(
       `LinkedIn returned HTTP ${response.status}: ${responseBody.slice(0, 500)}`,
