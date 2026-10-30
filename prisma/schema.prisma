@@ -287,7 +287,7 @@ model SocialAccount {
   providerAccountId     String
   displayName           String?
   profileUrl            String?
-  encryptedAccessToken  String         @db.Text
+  encryptedAccessToken  String?        @db.Text
   encryptedRefreshToken String?        @db.Text
   tokenExpiresAt        DateTime?
   scopes                String[]
