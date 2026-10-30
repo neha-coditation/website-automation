@@ -35,6 +35,46 @@ enum ArticleStatus {
   DISMISSED
 }
 
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  ARCHIVED
+}
+
+enum SocialProvider {
+  LINKEDIN
+}
+
+enum PublishStatus {
+  QUEUED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum AuditAction {
+  CREATED
+  UPDATED
+  COMMENTED
+  ASSIGNED
+  SUBMITTED_FOR_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  SCHEDULED
+  PUBLISH_STARTED
+  PUBLISHED
+  PUBLISH_FAILED
+  CANCELLED
+}
+
 model Organization {
   id          String       @id @default(cuid())
   name        String
@@ -45,15 +85,62 @@ model Organization {
   brandProfile BrandProfile?
   sources     ContentSource[]
   articles    Article[]
+  drafts      ContentDraft[]
+  socialAccounts SocialAccount[]
+  scheduledPosts ScheduledPost[]
+  campaigns Campaign[]
+  auditEvents AuditEvent[]
 }
 
 model User {
-  id          String       @id @default(cuid())
-  email       String       @unique
-  name        String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  memberships Membership[]
+  id            String       @id @default(cuid())
+  name          String?
+  email         String       @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  memberships   Membership[]
+  accounts      Account[]
+  sessions      Session[]
+  assignedDrafts ContentDraft[] @relation("DraftAssignee")
+  comments      ReviewComment[]
+  auditEvents   AuditEvent[] @relation("AuditActor")
+  approvals     ApprovalEvent[] @relation("ApprovalActor")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
 }
 
 model Membership {
@@ -64,26 +151,25 @@ model Membership {
   createdAt      DateTime         @default(now())
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@unique([organizationId, userId])
   @@index([userId])
   @@index([organizationId, role])
 }
 
 model BrandProfile {
-  id                String       @id @default(cuid())
-  organizationId    String       @unique
-  displayName       String
-  websiteUrl        String?
-  industry          String?
-  targetAudience    String?
-  brandVoice        String?
+  id                  String       @id @default(cuid())
+  organizationId      String       @unique
+  displayName         String
+  websiteUrl          String?
+  industry            String?
+  targetAudience      String?
+  brandVoice          String?
   editorialGuidelines String?
-  preferredTopics   String[]     @default([])
-  prohibitedTopics  String[]     @default([])
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  preferredTopics     String[]     @default([])
+  prohibitedTopics    String[]     @default([])
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model ContentSource {
@@ -99,7 +185,6 @@ model ContentSource {
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   articles       Article[]
-
   @@unique([organizationId, url])
   @@index([organizationId, status])
 }
@@ -120,8 +205,156 @@ model Article {
   status         ArticleStatus @default(NEW)
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   source         ContentSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-
+  drafts         ContentDraft[]
   @@unique([organizationId, canonicalUrl])
   @@index([organizationId, status, discoveredAt])
   @@index([sourceId, publishedAt])
+}
+
+model ContentDraft {
+  id             String        @id @default(cuid())
+  organizationId String
+  sourceArticleId String?
+  createdById    String
+  assignedToId   String?
+  title          String
+  body           String        @db.Text
+  channel        String        @default("LINKEDIN")
+  status         ContentStatus @default(DRAFT)
+  currentVersion Int           @default(1)
+  scheduledAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceArticle  Article?      @relation(fields: [sourceArticleId], references: [id], onDelete: SetNull)
+  createdBy      User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo     User?         @relation("DraftAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  versions       DraftVersion[]
+  comments       ReviewComment[]
+  approvals      ApprovalEvent[]
+  scheduledPosts ScheduledPost[]
+  @@index([organizationId, status, updatedAt])
+  @@index([assignedToId, status])
+}
+
+model DraftVersion {
+  id          String       @id @default(cuid())
+  draftId     String
+  version     Int
+  title       String
+  body        String       @db.Text
+  contentJson Json?
+  createdById String
+  createdAt   DateTime     @default(now())
+  draft       ContentDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  @@unique([draftId, version])
+  @@index([draftId, createdAt])
+}
+
+model ReviewComment {
+  id        String       @id @default(cuid())
+  draftId   String
+  userId    String
+  body      String       @db.Text
+  createdAt DateTime     @default(now())
+  draft     ContentDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@index([draftId, createdAt])
+}
+
+model ApprovalEvent {
+  id          String       @id @default(cuid())
+  draftId     String
+  actorId     String
+  action      AuditAction
+  note        String?      @db.Text
+  createdAt   DateTime     @default(now())
+  draft       ContentDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  actor       User         @relation("ApprovalActor", fields: [actorId], references: [id], onDelete: Restrict)
+  @@index([draftId, createdAt])
+}
+
+model SocialAccount {
+  id                    String         @id @default(cuid())
+  organizationId        String
+  provider              SocialProvider
+  providerAccountId     String
+  displayName           String?
+  profileUrl            String?
+  encryptedAccessToken  String         @db.Text
+  encryptedRefreshToken String?        @db.Text
+  tokenExpiresAt        DateTime?
+  scopes                String[]
+  connectedById         String
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  organization          Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  scheduledPosts        ScheduledPost[]
+  @@unique([organizationId, provider, providerAccountId])
+  @@index([organizationId, provider])
+}
+
+model ScheduledPost {
+  id                String        @id @default(cuid())
+  organizationId    String
+  draftId           String
+  socialAccountId   String
+  scheduledAt       DateTime
+  status            PublishStatus @default(QUEUED)
+  idempotencyKey    String        @unique
+  externalPostId    String?
+  publishedAt       DateTime?
+  lastError         String?       @db.Text
+  attemptCount      Int           @default(0)
+  lockedAt          DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  draft             ContentDraft  @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  socialAccount     SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Restrict)
+  attempts          PublishAttempt[]
+  @@index([status, scheduledAt])
+  @@index([organizationId, status, scheduledAt])
+}
+
+model PublishAttempt {
+  id              String        @id @default(cuid())
+  scheduledPostId String
+  attemptNumber   Int
+  status          PublishStatus
+  responseCode    Int?
+  responseBody    String?       @db.Text
+  errorMessage    String?       @db.Text
+  startedAt       DateTime      @default(now())
+  finishedAt      DateTime?
+  scheduledPost   ScheduledPost @relation(fields: [scheduledPostId], references: [id], onDelete: Cascade)
+  @@unique([scheduledPostId, attemptNumber])
+}
+
+model Campaign {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  description   String?      @db.Text
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@index([organizationId, startsAt])
+}
+
+model AuditEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         AuditAction
+  entityType     String
+  entityId       String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User?        @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
 }
