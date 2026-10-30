@@ -8,7 +8,7 @@ import {
 } from "./workspace-policy";
 
 test("normalizes invitation emails before persistence", () => {
-  assert.equal(normalizeInvitationEmail("  EDITOR@Example.COM "), "editor@example.com");
+  assert.equal(normalizeInvitationEmail("  NEWS@Example.COM "), "news@example.com");
 });
 
 test("rejects malformed, blank, non-string and oversized invitation emails", () => {
