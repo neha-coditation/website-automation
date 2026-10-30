@@ -11,7 +11,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test": "tsx --test lib/discovery/parse-rss-feed.test.ts"
+    "test": "tsx --test lib/discovery/*.test.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
