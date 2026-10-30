@@ -1,6 +1,6 @@
-import { prisma } from "@/lib/prisma";
+import { OrganizationRole } from "@prisma/client";\nimport { prisma } from "@/lib/prisma";
 import { normalizeArticleUrl } from "@/lib/discovery/parse-rss-feed";
-import { requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
+import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 type NewsApiArticle = {
   title?: string | null;
@@ -13,10 +13,10 @@ type NewsApiArticle = {
   source?: { name?: string };
 };
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
     const workspace = await requireWorkspace();
-    const apiKey = process.env.NEWS_API_KEY;
+    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);\n    const apiKey = process.env.NEWS_API_KEY;
     if (!apiKey) return Response.json({ error: "News search is not configured. Add NEWS_API_KEY on the server." }, { status: 503 });
     const incoming = new URL(request.url);
     const query = incoming.searchParams.get("q")?.trim().slice(0, 200);
