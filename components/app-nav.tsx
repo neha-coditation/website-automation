@@ -8,6 +8,7 @@ const links = [
   ["Review", "/review"],
   ["Publishing", "/calendar"],
   ["Brand settings", "/settings"],
+  ["Team", "/team"],
 ];
 
 export function AppNav() {
