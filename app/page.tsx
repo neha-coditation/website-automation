@@ -4,10 +4,12 @@ import {
   ArrowUpRight, Bell, CalendarDays, CheckCheck, ChevronDown, CircleHelp,
   Clock3, FileText, Filter, LayoutDashboard, Lightbulb, MessageSquare,
   Plus, Search, Settings2, Sparkles, Users, WandSparkles, Rss,
-  ChartNoAxesCombined, CircleAlert
+  ChartNoAxesCombined, CircleAlert, type LucideIcon
 } from "lucide-react";
 
-const navGroups = [
+type NavigationGroup = { label: string; items: { label: string; icon: LucideIcon; active?: boolean; count?: string }[] };
+
+const navGroups: NavigationGroup[] = [
   { label: "WORKSPACE", items: [
     { label: "Overview", icon: LayoutDashboard, active: true },
     { label: "Discover", icon: Lightbulb, count: "24" },
