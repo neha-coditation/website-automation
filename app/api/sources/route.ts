@@ -16,7 +16,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function PATCH(request: Request) {\n  try {\n    const workspace = await requireWorkspace();\n    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);\n    const input = await request.json() as { sourceId?: string; status?: string };\n    if (!input.sourceId || !["ACTIVE", "PAUSED"].includes(input.status || "")) return Response.json({ error: "sourceId and ACTIVE/PAUSED status are required." }, { status: 400 });\n    const result = await prisma.contentSource.updateMany({ where: { id: input.sourceId, organizationId: workspace.organization.id }, data: { status: input.status as "ACTIVE" | "PAUSED", lastError: null } });\n    if (!result.count) return Response.json({ error: "Source not found." }, { status: 404 });\n    return Response.json({ updated: true });\n  } catch (error) { return workspaceErrorResponse(error); }\n}\n\nexport async function POST(request: Request) {
   try {
     const workspace = await requireWorkspace();
     assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);
