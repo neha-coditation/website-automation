@@ -15,7 +15,6 @@ export async function GET(_request: Request, context: Context) {
     const versions = await prisma.draftVersion.findMany({
       where: { draftId },
       orderBy: { version: "desc" },
-      include: { },
     });
     return Response.json({ draft, versions });
   } catch (error) {
