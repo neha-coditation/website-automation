@@ -1,4 +1,4 @@
-import { SourceType, OrganizationRole } from "@prisma/client";
+import { OrganizationRole, SourceStatus, SourceType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
@@ -16,7 +16,26 @@ export async function GET() {
   }
 }
 
-export async function PATCH(request: Request) {\n  try {\n    const workspace = await requireWorkspace();\n    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);\n    const input = await request.json() as { sourceId?: string; status?: string };\n    if (!input.sourceId || !["ACTIVE", "PAUSED"].includes(input.status || "")) return Response.json({ error: "sourceId and ACTIVE/PAUSED status are required." }, { status: 400 });\n    const result = await prisma.contentSource.updateMany({ where: { id: input.sourceId, organizationId: workspace.organization.id }, data: { status: input.status as "ACTIVE" | "PAUSED", lastError: null } });\n    if (!result.count) return Response.json({ error: "Source not found." }, { status: 404 });\n    return Response.json({ updated: true });\n  } catch (error) { return workspaceErrorResponse(error); }\n}\n\nexport async function POST(request: Request) {
+export async function PATCH(request: Request) {
+  try {
+    const workspace = await requireWorkspace();
+    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);
+    const input = await request.json() as { sourceId?: string; status?: string };
+    if (!input.sourceId || (input.status !== "ACTIVE" && input.status !== "PAUSED")) {
+      return Response.json({ error: "sourceId and ACTIVE/PAUSED status are required." }, { status: 400 });
+    }
+    const result = await prisma.contentSource.updateMany({
+      where: { id: input.sourceId, organizationId: workspace.organization.id },
+      data: { status: input.status as SourceStatus, lastError: null },
+    });
+    if (!result.count) return Response.json({ error: "Source not found." }, { status: 404 });
+    return Response.json({ updated: true });
+  } catch (error) {
+    return workspaceErrorResponse(error);
+  }
+}
+
+export async function POST(request: Request) {
   try {
     const workspace = await requireWorkspace();
     assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);
