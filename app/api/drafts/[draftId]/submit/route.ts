@@ -12,7 +12,7 @@ export async function POST(_request: Request, context: Context) {
     const result = await prisma.$transaction(async tx => {
       const draft = await tx.contentDraft.findFirst({ where: { id: draftId, organizationId: workspace.organization.id } });
       if (!draft) return { error: "Draft not found.", status: 404 as const };
-      if (![ContentStatus.DRAFT, ContentStatus.CHANGES_REQUESTED].includes(draft.status)) {
+      if (draft.status !== ContentStatus.DRAFT && draft.status !== ContentStatus.CHANGES_REQUESTED) {
         return { error: "Only editable drafts can be submitted for review.", status: 409 as const };
       }
       await tx.contentDraft.update({ where: { id: draftId }, data: { status: ContentStatus.IN_REVIEW } });
