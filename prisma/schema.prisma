@@ -90,6 +90,7 @@ model Organization {
   scheduledPosts ScheduledPost[]
   campaigns Campaign[]
   auditEvents AuditEvent[]
+  oauthStates SocialOAuthState[]
 }
 
 model User {
@@ -108,6 +109,8 @@ model User {
   comments      ReviewComment[]
   auditEvents   AuditEvent[] @relation("AuditActor")
   approvals     ApprovalEvent[] @relation("ApprovalActor")
+  connectedSocialAccounts SocialAccount[] @relation("SocialAccountConnector")
+  oauthStates   SocialOAuthState[]
 }
 
 model Account {
@@ -287,6 +290,7 @@ model SocialAccount {
   tokenExpiresAt        DateTime?
   scopes                String[]
   connectedById         String
+  connectedBy           User           @relation("SocialAccountConnector", fields: [connectedById], references: [id], onDelete: Restrict)
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
   organization          Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -358,4 +362,17 @@ model AuditEvent {
   actor          User?        @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
   @@index([organizationId, createdAt])
   @@index([entityType, entityId])
+}
+
+model SocialOAuthState {
+  id             String       @id @default(cuid())
+  stateHash      String       @unique
+  organizationId String
+  userId         String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
 }
