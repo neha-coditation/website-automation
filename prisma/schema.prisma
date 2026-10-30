@@ -91,6 +91,7 @@ model Organization {
   campaigns Campaign[]
   auditEvents AuditEvent[]
   oauthStates SocialOAuthState[]
+  invitations OrganizationInvitation[]
 }
 
 model User {
@@ -111,6 +112,7 @@ model User {
   approvals     ApprovalEvent[] @relation("ApprovalActor")
   connectedSocialAccounts SocialAccount[] @relation("SocialAccountConnector")
   oauthStates   SocialOAuthState[]
+  sentInvitations OrganizationInvitation[] @relation("InvitationSender")
 }
 
 model Account {
@@ -374,5 +376,21 @@ model SocialOAuthState {
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([expiresAt])
+}
+
+model OrganizationInvitation {
+  id             String           @id @default(cuid())
+  organizationId String
+  email          String
+  role           OrganizationRole @default(EDITOR)
+  tokenHash      String           @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  invitedById    String
+  createdAt      DateTime         @default(now())
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User             @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+  @@index([organizationId, email])
   @@index([expiresAt])
 }
