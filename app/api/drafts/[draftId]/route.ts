@@ -29,7 +29,7 @@ export async function PATCH(request: Request, context: Context) {
       }
       const nextVersion = current.currentVersion + 1;
       const updated = await tx.contentDraft.updateMany({
-        where: { id: draftId, organizationId: workspace.organization.id, currentVersion: input.expectedVersion },
+        where: { id: draftId, organizationId: workspace.organization.id, currentVersion: input.expectedVersion, status: { in: [ContentStatus.DRAFT, ContentStatus.CHANGES_REQUESTED] } },
         data: { title, body, currentVersion: nextVersion },
       });
       if (!updated.count) return { error: "Draft version conflict. Reload before editing.", status: 409 as const };
