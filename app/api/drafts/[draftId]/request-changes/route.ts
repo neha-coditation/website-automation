@@ -15,7 +15,11 @@ export async function POST(request: Request, context: Context) {
       const draft = await tx.contentDraft.findFirst({ where: { id: draftId, organizationId: workspace.organization.id } });
       if (!draft) return { error: "Draft not found.", status: 404 as const };
       if (draft.status !== ContentStatus.IN_REVIEW) return { error: "Only content in review can receive a decision.", status: 409 as const };
-      await tx.contentDraft.update({ where: { id: draftId }, data: { status: ContentStatus.CHANGES_REQUESTED } });
+      const changed = await tx.contentDraft.updateMany({
+        where: { id: draftId, organizationId: workspace.organization.id, status: ContentStatus.IN_REVIEW },
+        data: { status: ContentStatus.CHANGES_REQUESTED },
+      });
+      if (!changed.count) return { error: "Draft state changed. Reload the queue.", status: 409 as const };
       await tx.approvalEvent.create({ data: { draftId, actorId: workspace.userId, action: "CHANGES_REQUESTED", note } });
       await tx.auditEvent.create({ data: { organizationId: workspace.organization.id, actorId: workspace.userId, action: "CHANGES_REQUESTED", entityType: "ContentDraft", entityId: draftId } });
       return { changesRequested: true };
