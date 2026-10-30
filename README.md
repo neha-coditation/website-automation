@@ -75,7 +75,16 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. The current dashboard uses illustrative sample data; discovery, authentication, persistence, AI generation, and publishing are not connected yet.
+Open http://localhost:3000. The dashboard still uses illustrative sample data; authentication, discovery UI, AI generation, and publishing are not connected yet. The Prisma schema now defines the first persistence layer for organizations, memberships, brand profiles, content sources, and discovered articles.
+
+After adding your Neon connection string to `.env.local`, run:
+
+```bash
+npm run db:generate
+npm run db:migrate
+```
+
+Use `npm run db:studio` to inspect the local database schema and records. Do not run migrations against production until the schema has been reviewed.
 
 Useful checks:
 
