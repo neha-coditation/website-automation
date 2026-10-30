@@ -24,9 +24,9 @@ export async function POST(request: Request) {
     const workspace = await requireWorkspace();
     assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN]);
     const body = await request.json() as { email?: string; role?: string };
-    const email = body.email?.trim().toLowerCase();
+    const email = normalizeInvitationEmail(body.email);
     const role = body.role as OrganizationRole;
-    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email) {
       return Response.json({ error: "Enter a valid email address." }, { status: 400 });
     }
     if (!canInviteRole(workspace.role, role)) {
