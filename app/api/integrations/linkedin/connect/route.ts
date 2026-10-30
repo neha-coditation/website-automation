@@ -1,11 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { OrganizationRole } from "@prisma/client";\nimport { prisma } from "@/lib/prisma";
+import { OrganizationRole } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 export async function GET() {
   try {
-    const workspace = await requireWorkspace();\n    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN]);
+    const workspace = await requireWorkspace();
+    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN]);
     const clientId = process.env.LINKEDIN_CLIENT_ID;
     const redirectUri = process.env.LINKEDIN_REDIRECT_URI;
     if (!clientId || !redirectUri) {
