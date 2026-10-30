@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ContentStatus, OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { draftHtmlToText } from "@/lib/content/sanitize";
 import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 export async function GET() {
@@ -46,6 +47,9 @@ export async function POST(request: Request) {
       if (draft.status !== ContentStatus.APPROVED) {
         return { error: "Only explicitly approved content can be scheduled.", status: 409 as const };
       }
+      if (draft.channel !== "LINKEDIN") return { error: "Only LinkedIn drafts can be scheduled through this integration.", status: 400 as const };
+      const postText = draftHtmlToText(draft.body);
+      if (!postText || postText.length > 3000) return { error: "LinkedIn posts must contain 1–3,000 characters of text.", status: 400 as const };
       const approval = await tx.approvalEvent.findFirst({
         where: { draftId: draft.id, action: "APPROVED" },
         select: { id: true },
@@ -55,7 +59,7 @@ export async function POST(request: Request) {
         where: { id: input.socialAccountId, organizationId: workspace.organization.id, provider: "LINKEDIN", isActive: true },
       });
       if (!account) return { error: "Connected LinkedIn account not found.", status: 404 as const };
-      if (!account.encryptedAccessToken || (account.tokenExpiresAt && account.tokenExpiresAt <= new Date())) {
+      if (!account.isActive || !account.encryptedAccessToken || !account.scopes.includes("w_member_social") || (account.tokenExpiresAt && account.tokenExpiresAt <= new Date())) {
         return { error: "LinkedIn access token has expired. Reconnect the account before scheduling.", status: 409 as const };
       }
       const post = await tx.scheduledPost.create({
