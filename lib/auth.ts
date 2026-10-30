@@ -1,4 +1,4 @@
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, Profile } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
@@ -16,7 +16,8 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: "/login" },
   callbacks: {
     async signIn({ profile }) {
-      return profile?.email_verified === true;
+      const googleProfile = profile as (Profile & { email_verified?: boolean }) | undefined;
+      return googleProfile?.email_verified === true;
     },
     async session({ session, token }) {
       if (session.user && token.sub) session.user.id = token.sub;
