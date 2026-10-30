@@ -9,7 +9,7 @@ type LinkedInToken = { access_token: string; expires_in: number; scope?: string 
 type LinkedInProfile = { sub: string; name?: string; picture?: string };
 
 function resultRedirect(status: string) {
-  return NextResponse.redirect(new URL(`/?linkedin=${status}`, process.env.NEXTAUTH_URL || "http://localhost:3000"));
+  return NextResponse.redirect(new URL(`/calendar?linkedin=${status}`, process.env.NEXTAUTH_URL || "http://localhost:3000"));
 }
 
 export async function GET(request: Request) {
