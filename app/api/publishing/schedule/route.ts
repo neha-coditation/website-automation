@@ -52,10 +52,10 @@ export async function POST(request: Request) {
       });
       if (!approval) return { error: "An approval record is required before scheduling.", status: 409 as const };
       const account = await tx.socialAccount.findFirst({
-        where: { id: input.socialAccountId, organizationId: workspace.organization.id, provider: "LINKEDIN" },
+        where: { id: input.socialAccountId, organizationId: workspace.organization.id, provider: "LINKEDIN", isActive: true },
       });
       if (!account) return { error: "Connected LinkedIn account not found.", status: 404 as const };
-      if (account.tokenExpiresAt && account.tokenExpiresAt <= new Date()) {
+      if (!account.encryptedAccessToken || (account.tokenExpiresAt && account.tokenExpiresAt <= new Date())) {
         return { error: "LinkedIn access token has expired. Reconnect the account before scheduling.", status: 409 as const };
       }
       const post = await tx.scheduledPost.create({
