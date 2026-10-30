@@ -103,7 +103,7 @@ export async function GET(request: Request) {
         isActive: true,
         disconnectedAt: null,
         tokenExpiresAt: new Date(Date.now() + token.expires_in * 1000),
-        scopes: (token.scope || "openid profile w_member_social").split(/[ ,]+/).filter(Boolean),
+        scopes: grantedScopes,
       },
     });
     return resultRedirect("connected");
