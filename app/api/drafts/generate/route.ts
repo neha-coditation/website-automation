@@ -1,5 +1,6 @@
 import { OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sanitizeDraftHtml } from "@/lib/content/sanitize";
 import { requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 export async function POST(request: Request) {
@@ -55,7 +56,8 @@ export async function POST(request: Request) {
       return Response.json({ error: "The AI provider could not generate a draft. Please retry." }, { status: 502 });
     }
     const payload = await response.json() as { choices?: { message?: { content?: string | null } }[] };
-    const generated = payload.choices?.[0]?.message?.content?.trim();
+    const rawGenerated = payload.choices?.[0]?.message?.content?.trim();
+    const generated = rawGenerated ? sanitizeDraftHtml(rawGenerated) : "";
     if (!generated) return Response.json({ error: "The AI provider returned an empty draft." }, { status: 502 });
     const firstLine = generated.split("\n").find(line => line.trim())?.replace(/^#\s*/, "").trim() || article.title;
     const title = firstLine.slice(0, 240);
