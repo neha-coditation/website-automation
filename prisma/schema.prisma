@@ -290,6 +290,8 @@ model SocialAccount {
   encryptedAccessToken  String?        @db.Text
   encryptedRefreshToken String?        @db.Text
   tokenExpiresAt        DateTime?
+  isActive              Boolean        @default(true)
+  disconnectedAt        DateTime?
   scopes                String[]
   connectedById         String
   connectedBy           User           @relation("SocialAccountConnector", fields: [connectedById], references: [id], onDelete: Restrict)
