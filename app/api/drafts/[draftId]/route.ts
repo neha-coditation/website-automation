@@ -21,7 +21,7 @@ export async function PATCH(request: Request, context: Context) {
         where: { id: draftId, organizationId: workspace.organization.id },
       });
       if (!current) return { error: "Draft not found.", status: 404 as const };
-      if (![ContentStatus.DRAFT, ContentStatus.CHANGES_REQUESTED].includes(current.status)) {
+      if (current.status !== ContentStatus.DRAFT && current.status !== ContentStatus.CHANGES_REQUESTED) {
         return { error: "Only drafts and drafts with requested changes can be edited.", status: 409 as const };
       }
       if (current.currentVersion !== input.expectedVersion) {
