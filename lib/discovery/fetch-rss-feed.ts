@@ -15,13 +15,17 @@ export type SafeFeedResponse = {
   contentType: string | null;
 };
 
+function stripIPv6Brackets(hostname: string): string {
+  return hostname.startsWith("[") && hostname.endsWith("]")
+    ? hostname.slice(1, -1)
+    : hostname;
+}
+
 function isPublicAddress(address: string): boolean {
   try {
-    let parsed = ipaddr.parse(address);
-    if (parsed.kind() === "ipv6" && parsed.isIPv4MappedAddress()) {
-      parsed = parsed.toIPv4Address();
-    }
-    return parsed.range() === "unicast";
+    // ipaddr.js classifies IPv4-mapped IPv6 and other special ranges as
+    // non-unicast, so rejecting anything outside "unicast" is deliberately strict.
+    return ipaddr.parse(address).range() === "unicast";
   } catch {
     return false;
   }
@@ -32,10 +36,10 @@ async function resolvePublicAddress(hostname: string): Promise<{ address: string
     throw new Error("Local network feed URLs are not allowed.");
   }
 
-  const normalizedHost = hostname.replace(/^\\[|\\]$/g, "");
+  const normalizedHost = stripIPv6Brackets(hostname);
   const literalFamily = ipaddr.isValid(normalizedHost) ? ipaddr.parse(normalizedHost).kind() === "ipv4" ? 4 : 6 : 0;
   const records = literalFamily
-    ? [{ address: hostname, family: literalFamily }]
+    ? [{ address: normalizedHost, family: literalFamily }]
     : await lookup(normalizedHost, { all: true, verbatim: true });
 
   if (records.length === 0 || records.some((record) => !isPublicAddress(record.address))) {
@@ -54,7 +58,7 @@ function requestOnce(url: URL, address: { address: string; family: number }): Pr
     const transport = url.protocol === "https:" ? https : http;
     const options: RequestOptions = {
       protocol: url.protocol,
-      hostname: url.hostname.replace(/^\\[|\\]$/g, ""),
+      hostname: stripIPv6Brackets(url.hostname),
       port: url.port || undefined,
       path: `${url.pathname}${url.search}`,
       method: "GET",
