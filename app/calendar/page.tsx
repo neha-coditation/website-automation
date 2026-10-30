@@ -9,7 +9,21 @@ type Post={id:string;status:string;scheduledAt:string;lastError:string|null;outc
 export default function CalendarPage(){
  const [accounts,setAccounts]=useState<Account[]>([]);const [drafts,setDrafts]=useState<Draft[]>([]);const [posts,setPosts]=useState<Post[]>([]);const [draftId,setDraftId]=useState("");const [accountId,setAccountId]=useState("");const [scheduledAt,setScheduledAt]=useState("");const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);
  async function load(){const [a,d,p]=await Promise.all([fetch("/api/social-accounts"),fetch("/api/drafts"),fetch("/api/publishing/schedule")]);const ad=await a.json(),dd=await d.json(),pd=await p.json();if(a.ok){setAccounts(ad.accounts);if(!accountId&&ad.accounts[0])setAccountId(ad.accounts[0].id);}if(d.ok){const approved=dd.drafts.filter((x:Draft)=>x.status==="APPROVED");setDrafts(approved);if(!draftId&&approved[0])setDraftId(approved[0].id);}if(p.ok)setPosts(pd.posts);}
- useEffect(()=>{void load();},[]);
+ useEffect(()=>{
+  const status=new URLSearchParams(window.location.search).get("linkedin");
+  const messages:Record<string,string>={
+   connected:"LinkedIn account connected successfully.",
+   cancelled:"LinkedIn connection was cancelled.",
+   "invalid-state":"LinkedIn connection expired or could not be verified. Please try again.",
+   "not-configured":"LinkedIn OAuth is missing server configuration.",
+   "token-error":"LinkedIn could not exchange the authorization code. Please reconnect.",
+   "missing-permission":"LinkedIn did not grant the w_member_social permission required to publish.",
+   "profile-error":"LinkedIn account details could not be loaded.",
+   error:"LinkedIn connection failed. Please try again."
+  };
+  if(status&&messages[status])setMessage(messages[status]);
+  void load();
+ },[]);
  async function schedule(e:FormEvent){e.preventDefault();setBusy(true);setMessage("");const r=await fetch("/api/publishing/schedule",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({draftId,socialAccountId:accountId,scheduledAt:new Date(scheduledAt).toISOString()})});const d=await r.json();if(!r.ok)setMessage(d.error||"Could not schedule post.");else{setMessage("Approved post added to the publishing queue.");setScheduledAt("");await load();}setBusy(false);}
  async function disconnect(id:string){if(!window.confirm("Disconnect this LinkedIn account from the workspace? Existing publishing history will be kept."))return;setBusy(true);const r=await fetch("/api/social-accounts",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountId:id})});const d=await r.json();setMessage(r.ok?"LinkedIn account disconnected.":d.error||"Could not disconnect account.");await load();setBusy(false);}
  async function postAction(post:Post,action:"cancel"|"retry"){if(action==="retry"&&post.outcomeUncertain&&!window.confirm("The previous LinkedIn request may have succeeded. First verify that the post is not already on LinkedIn. Have you confirmed that no post exists?"))return;setBusy(true);const r=await fetch(`/api/publishing/schedule/${post.id}${action==="retry"?"/retry":""}`,{method:action==="cancel"?"DELETE":"POST",headers:{"Content-Type":"application/json"},body:action==="retry"?JSON.stringify({confirmNoRemotePost:post.outcomeUncertain}):undefined});const d=await r.json();setMessage(r.ok?(action==="cancel"?"Post cancelled.":"Post queued for manual retry."):d.error||"Action failed.");await load();setBusy(false);}
