@@ -1,6 +1,6 @@
-import { ArticleStatus } from "@prisma/client";
+import { ArticleStatus, OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
+import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 const statuses = new Set(Object.values(ArticleStatus));
 
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const workspace = await requireWorkspace();
-    const body = await request.json() as { articleId?: string; status?: string };
+    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR, OrganizationRole.REVIEWER]);\n    const body = await request.json() as { articleId?: string; status?: string };
     if (!body.articleId || !body.status || !statuses.has(body.status as ArticleStatus)) {
       return Response.json({ error: "A valid articleId and status are required." }, { status: 400 });
     }
