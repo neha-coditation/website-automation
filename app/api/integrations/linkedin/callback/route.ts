@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/crypto";
-import { requireWorkspace } from "@/lib/workspace";
+import { assertRole, requireWorkspace } from "@/lib/workspace";\nimport { OrganizationRole } from "@prisma/client";
 
 type LinkedInToken = { access_token: string; expires_in: number; scope?: string };
 type LinkedInProfile = { sub: string; name?: string; picture?: string };
@@ -13,7 +13,7 @@ function resultRedirect(status: string) {
 
 export async function GET(request: Request) {
   try {
-    const workspace = await requireWorkspace();
+    const workspace = await requireWorkspace();\n    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN]);
     const url = new URL(request.url);
     const code = url.searchParams.get("code");
     const state = url.searchParams.get("state");
