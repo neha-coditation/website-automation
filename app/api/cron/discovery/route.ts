@@ -14,9 +14,9 @@ export async function POST(request: Request) {
   if (!process.env.CRON_SECRET) return Response.json({ error: "Discovery cron is not configured." }, { status: 503 });
   if (!authorized(request)) return Response.json({ error: "Unauthorized." }, { status: 401 });
   const sources = await prisma.contentSource.findMany({
-    where: { status: "ACTIVE", type: { in: ["RSS", "BLOG"] } },
+    where: { status: { in: ["ACTIVE", "ERROR"] }, type: { in: ["RSS", "BLOG"] } },
     select: { id: true, organizationId: true },
-    take: 50,
+    take: 10,
     orderBy: { lastFetchedAt: "asc" },
   });
   const results: { sourceId: string; status: string; inserted?: number; updated?: number; error?: string }[] = [];
