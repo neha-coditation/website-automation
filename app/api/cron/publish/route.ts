@@ -19,11 +19,55 @@ export async function POST(request: Request) {
   if (!authorized(request)) return Response.json({ error: "Unauthorized." }, { status: 401 });
 
   const now = new Date();
+  const staleBefore = new Date(now.getTime() - 5 * 60_000);
+
+  // A process that died while a request was in flight may have published remotely.
+  // Mark it uncertain and require a human to reconcile before any retry.
+  const stale = await prisma.scheduledPost.findMany({
+    where: { status: PublishStatus.PUBLISHING, lockedAt: { lt: staleBefore } },
+    select: { id: true, organizationId: true, draftId: true, attemptCount: true },
+    take: 20,
+  });
+  for (const item of stale) {
+    const marked = await prisma.scheduledPost.updateMany({
+      where: { id: item.id, status: PublishStatus.PUBLISHING, lockedAt: { lt: staleBefore } },
+      data: {
+        status: PublishStatus.FAILED,
+        lockedAt: null,
+        outcomeUncertain: true,
+        lastError: "The publishing worker stopped during the request. Verify LinkedIn before retrying.",
+      },
+    });
+    if (marked.count) {
+      await prisma.$transaction(async tx => {
+        await tx.publishAttempt.create({
+          data: {
+            scheduledPostId: item.id,
+            attemptNumber: item.attemptCount,
+            status: PublishStatus.FAILED,
+            errorMessage: "Worker stopped while the remote publish outcome was unknown.",
+            finishedAt: new Date(),
+          },
+        });
+        await tx.contentDraft.update({ where: { id: item.draftId }, data: { status: ContentStatus.FAILED } });
+        await tx.auditEvent.create({
+          data: {
+            organizationId: item.organizationId,
+            action: "PUBLISH_FAILED",
+            entityType: "ScheduledPost",
+            entityId: item.id,
+            metadata: { outcomeUncertain: true, attemptNumber: item.attemptCount },
+          },
+        });
+      });
+    }
+  }
+
   const due = await prisma.scheduledPost.findMany({
     where: {
       status: PublishStatus.QUEUED,
       scheduledAt: { lte: now },
-      OR: [{ lockedAt: null }, { lockedAt: { lt: new Date(now.getTime() - 5 * 60_000) } }],
+      OR: [{ lockedAt: null }, { lockedAt: { lt: staleBefore } }],
     },
     select: { id: true },
     orderBy: { scheduledAt: "asc" },
@@ -36,9 +80,13 @@ export async function POST(request: Request) {
       where: {
         id: candidate.id,
         status: PublishStatus.QUEUED,
-        OR: [{ lockedAt: null }, { lockedAt: { lt: new Date(now.getTime() - 5 * 60_000) } }],
+        OR: [{ lockedAt: null }, { lockedAt: { lt: staleBefore } }],
       },
-      data: { status: PublishStatus.PUBLISHING, lockedAt: now, attemptCount: { increment: 1 } },
+      data: {
+        status: PublishStatus.PUBLISHING,
+        lockedAt: now,
+        attemptCount: { increment: 1 },
+      },
     });
     if (!claimed.count) continue;
 
@@ -52,6 +100,7 @@ export async function POST(request: Request) {
     if (!post) continue;
     const attemptNumber = post.attemptCount;
     const startedAt = new Date();
+    let providerAccepted = false;
 
     try {
       if (post.draft.status !== ContentStatus.SCHEDULED || post.draft.approvals.length === 0) {
@@ -61,7 +110,13 @@ export async function POST(request: Request) {
         throw new Error("LinkedIn access token expired; reconnect the account.");
       }
       const token = decryptSecret(post.socialAccount.encryptedAccessToken);
-      const published = await publishLinkedInPost(token, post.socialAccount.providerAccountId, draftHtmlToText(post.draft.body));
+      const published = await publishLinkedInPost(
+        token,
+        post.socialAccount.providerAccountId,
+        draftHtmlToText(post.draft.body),
+      );
+      providerAccepted = true;
+
       await prisma.$transaction(async tx => {
         await tx.publishAttempt.create({
           data: {
@@ -76,18 +131,35 @@ export async function POST(request: Request) {
         });
         await tx.scheduledPost.update({
           where: { id: post.id },
-          data: { status: PublishStatus.PUBLISHED, externalPostId: published.externalPostId, publishedAt: new Date(), lockedAt: null, lastError: null },
+          data: {
+            status: PublishStatus.PUBLISHED,
+            externalPostId: published.externalPostId,
+            publishedAt: new Date(),
+            lockedAt: null,
+            lastError: null,
+            outcomeUncertain: false,
+          },
         });
         await tx.contentDraft.update({ where: { id: post.draftId }, data: { status: ContentStatus.PUBLISHED } });
         await tx.auditEvent.create({
-          data: { organizationId: post.organizationId, action: "PUBLISHED", entityType: "ScheduledPost", entityId: post.id, metadata: { externalPostId: published.externalPostId } },
+          data: {
+            organizationId: post.organizationId,
+            action: "PUBLISHED",
+            entityType: "ScheduledPost",
+            entityId: post.id,
+            metadata: { externalPostId: published.externalPostId },
+          },
         });
       });
       results.push({ id: post.id, status: "PUBLISHED" });
     } catch (error) {
-      const message = error instanceof Error ? error.message.slice(0, 1000) : "Unknown publishing failure.";
-      const retryable = error instanceof LinkedInPublishError && error.retryable && attemptNumber < 3;
+      const message = providerAccepted
+        ? "LinkedIn accepted the post, but local status persistence failed. Verify LinkedIn before retrying."
+        : error instanceof Error ? error.message.slice(0, 1000) : "Unknown publishing failure.";
+      const uncertain = providerAccepted || (error instanceof LinkedInPublishError && error.outcomeUncertain);
+      const retryable = !uncertain && error instanceof LinkedInPublishError && error.retryable && attemptNumber < 3;
       const retryAt = new Date(Date.now() + Math.min(15, 2 ** attemptNumber) * 60_000);
+
       await prisma.$transaction(async tx => {
         await tx.publishAttempt.create({
           data: {
@@ -107,6 +179,7 @@ export async function POST(request: Request) {
             scheduledAt: retryable ? retryAt : post.scheduledAt,
             lockedAt: null,
             lastError: message,
+            outcomeUncertain: uncertain,
           },
         });
         if (!retryable) {
@@ -118,11 +191,15 @@ export async function POST(request: Request) {
             action: retryable ? "SCHEDULED" : "PUBLISH_FAILED",
             entityType: "ScheduledPost",
             entityId: post.id,
-            metadata: { attemptNumber, retryable, error: message },
+            metadata: { attemptNumber, retryable, outcomeUncertain: uncertain, error: message },
           },
         });
       });
-      results.push({ id: post.id, status: retryable ? "RETRY_QUEUED" : "FAILED", detail: message });
+      results.push({
+        id: post.id,
+        status: retryable ? "RETRY_QUEUED" : "FAILED",
+        detail: message,
+      });
     }
   }
 
