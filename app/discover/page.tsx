@@ -23,7 +23,7 @@ export default function DiscoverPage() {
   async function searchNews() {
     if(!newsQuery.trim()) return;
     setMessage("Searching news provider…");
-    const r=await fetch("/api/discovery/news-search?q="+encodeURIComponent(newsQuery));
+    const r=await fetch("/api/discovery/news-search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({query:newsQuery})});
     const d=await r.json();
     if(!r.ok) setMessage(d.error||"News search failed.");
     else {setMessage("Saved "+d.saved+" articles from "+d.returned+" results.");await load();}
