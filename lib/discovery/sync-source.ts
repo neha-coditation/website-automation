@@ -9,6 +9,10 @@ export async function syncContentSource(sourceId: string, organizationId: string
   });
   if (!source) throw new Error("Source not found or paused.");
   try {
+    await prisma.contentSource.update({
+      where: { id: source.id },
+      data: { lastAttemptAt: new Date() },
+    });
     const fetched = await fetchRssFeed(source.url);
     const feed = await parseRssFeedXml(fetched.xml);
     let inserted = 0;
@@ -36,13 +40,13 @@ export async function syncContentSource(sourceId: string, organizationId: string
     }
     await prisma.contentSource.update({
       where: { id: source.id },
-      data: { lastFetchedAt: new Date(), lastError: null, status: SourceStatus.ACTIVE },
+      data: { lastFetchedAt: new Date(), lastAttemptAt: new Date(), lastError: null, status: SourceStatus.ACTIVE },
     });
     return { sourceId: source.id, feedTitle: feed.title, fetched: feed.items.length, inserted, updated };
   } catch (error) {
     await prisma.contentSource.update({
       where: { id: source.id },
-      data: { status: SourceStatus.ERROR, lastError: error instanceof Error ? error.message.slice(0, 500) : "Feed sync failed." },
+      data: { lastAttemptAt: new Date(), status: SourceStatus.ERROR, lastError: error instanceof Error ? error.message.slice(0, 500) : "Feed sync failed." },
     });
     throw error;
   }
