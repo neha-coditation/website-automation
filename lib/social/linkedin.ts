@@ -1,5 +1,10 @@
 export class LinkedInPublishError extends Error {
-  constructor(message: string, public statusCode: number | null, public retryable: boolean, public outcomeUncertain = false) {
+  constructor(
+    message: string,
+    public statusCode: number | null,
+    public retryable: boolean,
+    public outcomeUncertain = false,
+  ) {
     super(message);
     this.name = "LinkedInPublishError";
   }
@@ -19,6 +24,7 @@ export async function publishLinkedInPost(
   if (!commentary.trim() || commentary.length > 3000) {
     throw new LinkedInPublishError("LinkedIn post text must contain 1–3,000 characters.", null, false);
   }
+
   let response: Response;
   try {
     response = await fetch("https://api.linkedin.com/rest/posts", {
@@ -44,18 +50,24 @@ export async function publishLinkedInPost(
       signal: AbortSignal.timeout(30_000),
     });
   } catch {
-    // The request may have reached LinkedIn before the connection failed.
-    // Do not automatically retry an outcome that may have succeeded remotely.
-    throw new LinkedInPublishError("LinkedIn request outcome is unknown; reconcile the post before retrying.", null, false, true);
+    throw new LinkedInPublishError(
+      "LinkedIn request outcome is unknown; verify the post on LinkedIn before retrying.",
+      null,
+      false,
+      true,
+    );
   }
+
   const responseBody = await response.text();
   if (!response.ok) {
     throw new LinkedInPublishError(
       `LinkedIn returned HTTP ${response.status}: ${responseBody.slice(0, 500)}`,
       response.status,
       response.status === 429,
+      response.status >= 500,
     );
   }
+
   return {
     externalPostId: response.headers.get("x-restli-id") || response.headers.get("location"),
     responseBody: responseBody.slice(0, 4000),
