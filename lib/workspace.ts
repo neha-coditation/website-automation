@@ -39,8 +39,8 @@ export async function requireWorkspace() {
     const slug = `workspace-${userId.slice(-10).toLowerCase()}`;
     membership = await prisma.membership.create({
       data: {
-        userId,
         role: OrganizationRole.OWNER,
+        user: { connect: { id: userId } },
         organization: {
           create: {
             name: baseName + "'s workspace",
