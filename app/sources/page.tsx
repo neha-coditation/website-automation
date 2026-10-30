@@ -32,6 +32,20 @@ export default function SourcesPage() {
     finally { setBusy(false); }
   }
 
+  async function toggle(source: Source) {
+    setBusy(true);
+    const nextStatus = source.status === "PAUSED" ? "ACTIVE" : "PAUSED";
+    const response = await fetch("/api/sources", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceId: source.id, status: nextStatus }),
+    });
+    const data = await response.json();
+    setMessage(response.ok ? (nextStatus === "PAUSED" ? "Source paused." : "Source resumed.") : data.error || "Could not update source.");
+    await load();
+    setBusy(false);
+  }
+
   async function sync(id: string) {
     setBusy(true); setMessage("");
     try {
@@ -46,6 +60,6 @@ export default function SourcesPage() {
   return <main className="workspace-page"><AppNav/><div className="workspace-content"><p className="eyebrow">PHASE 2 · DISCOVERY</p><h1>Content sources</h1><p className="page-intro">Connect RSS and Atom feeds. Each sync safely fetches the feed and deduplicates articles inside your workspace.</p>
     <form className="workspace-form source-form" onSubmit={addSource}><label>Source name<input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. The New Stack" required maxLength={120}/></label><label>Feed URL<input type="url" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://example.com/feed.xml" required/></label><label>Type<select value={type} onChange={e=>setType(e.target.value)}><option value="RSS">RSS / Atom</option><option value="BLOG">Blog feed</option></select></label><button className="primary-button" disabled={busy}>{busy ? "Working…" : "Add source"}</button></form>
     {message && <p className="inline-message" role="status">{message}</p>}
-    <section className="workspace-list"><h2>Connected sources <span>{sources.length}</span></h2>{sources.length===0 ? <p className="empty-state">No sources yet. Add an RSS feed above to begin discovery.</p> : sources.map(source=><article className="workspace-list-row" key={source.id}><div><strong>{source.name}</strong><a href={source.url} target="_blank" rel="noreferrer">{source.url}</a><small>{source._count.articles} articles · {source.lastFetchedAt ? `Last synced ${new Date(source.lastFetchedAt).toLocaleString()}` : "Not synced yet"} · {source.status}</small>{source.lastError && <small className="error-text">{source.lastError}</small>}</div><button className="secondary-button compact" disabled={busy || source.status==="PAUSED"} onClick={()=>sync(source.id)}>Sync now</button></article>)}</section>
+    <section className="workspace-list"><h2>Connected sources <span>{sources.length}</span></h2>{sources.length===0 ? <p className="empty-state">No sources yet. Add an RSS feed above to begin discovery.</p> : sources.map(source=><article className="workspace-list-row" key={source.id}><div><strong>{source.name}</strong><a href={source.url} target="_blank" rel="noreferrer">{source.url}</a><small>{source._count.articles} articles · {source.lastFetchedAt ? `Last synced ${new Date(source.lastFetchedAt).toLocaleString()}` : "Not synced yet"} · {source.status}</small>{source.lastError && <small className="error-text">{source.lastError}</small>}</div><div className="article-actions"><button className="secondary-button compact" disabled={busy || source.status==="PAUSED"} onClick={()=>sync(source.id)}>Sync now</button><button className="secondary-button compact" disabled={busy} onClick={()=>toggle(source)}>{source.status==="PAUSED"?"Resume":"Pause"}</button></div></article>)}</section>
   </div></main>;
 }
