@@ -1,6 +1,7 @@
 import { OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
+import { canEditBrandProfile } from "@/lib/workspace-policy";
 
 export async function GET() {
   try {
@@ -17,7 +18,9 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const workspace = await requireWorkspace();
-    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);
+    if (!canEditBrandProfile(workspace.role)) {
+      return Response.json({ error: "You do not have permission to update brand settings." }, { status: 403 });
+    }
     const body = await request.json() as Record<string, unknown>;
     const displayName = typeof body.displayName === "string" ? body.displayName.trim() : "";
     if (!displayName || displayName.length > 120) {
