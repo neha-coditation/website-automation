@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     },
     select: { id: true },
     orderBy: { scheduledAt: "asc" },
-    take: 20,
+    take: 2,
   });
 
   const results: { id: string; status: string; detail?: string }[] = [];
