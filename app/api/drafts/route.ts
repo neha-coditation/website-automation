@@ -1,5 +1,6 @@
 import { ContentStatus, OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sanitizeDraftHtml } from "@/lib/content/sanitize";
 import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 export async function GET() {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);
     const body = await request.json() as { title?: string; body?: string; channel?: string; sourceArticleId?: string };
     const title = body.title?.trim();
-    const text = body.body?.trim();
+    const text = body.body ? sanitizeDraftHtml(body.body).trim() : "";
     if (!title || title.length > 240 || !text || text.length > 100_000) {
       return Response.json({ error: "A title and content body are required." }, { status: 400 });
     }
