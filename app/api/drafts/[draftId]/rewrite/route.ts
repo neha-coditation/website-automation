@@ -1,5 +1,6 @@
 import { ContentStatus, OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sanitizeDraftHtml } from "@/lib/content/sanitize";
 import { requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 type Context = { params: Promise<{ draftId: string }> };
@@ -45,7 +46,8 @@ export async function POST(request: Request, context: Context) {
       return Response.json({ error: "AI rewrite failed. Please retry." }, { status: 502 });
     }
     const payload = await response.json() as { choices?: { message?: { content?: string | null } }[] };
-    const body = payload.choices?.[0]?.message?.content?.trim();
+    const rawBody = payload.choices?.[0]?.message?.content?.trim();
+    const body = rawBody ? sanitizeDraftHtml(rawBody) : "";
     if (!body) return Response.json({ error: "AI provider returned an empty rewrite." }, { status: 502 });
     const nextVersion = draft.currentVersion + 1;
     const title = body.split("\n").find(line => line.trim())?.replace(/^#\s*/, "").trim().slice(0, 240) || draft.title;
