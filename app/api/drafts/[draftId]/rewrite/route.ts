@@ -21,7 +21,7 @@ export async function POST(request: Request, context: Context) {
       include: { sourceArticle: true },
     });
     if (!draft) return Response.json({ error: "Draft not found." }, { status: 404 });
-    if (!draft.status !== ContentStatus.DRAFT && draft.status !== ContentStatus.CHANGES_REQUESTED) {
+    if (draft.status !== ContentStatus.DRAFT && draft.status !== ContentStatus.CHANGES_REQUESTED) {
       return Response.json({ error: "Only editable drafts can be rewritten." }, { status: 409 });
     }
     if (draft.currentVersion !== input.expectedVersion) return Response.json({ error: "Draft version conflict. Reload before rewriting." }, { status: 409 });
