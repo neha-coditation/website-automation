@@ -1,5 +1,5 @@
 export class LinkedInPublishError extends Error {
-  constructor(message: string, public statusCode: number | null, public retryable: boolean) {
+  constructor(message: string, public statusCode: number | null, public retryable: boolean, public outcomeUncertain = false) {
     super(message);
     this.name = "LinkedInPublishError";
   }
@@ -46,7 +46,7 @@ export async function publishLinkedInPost(
   } catch {
     // The request may have reached LinkedIn before the connection failed.
     // Do not automatically retry an outcome that may have succeeded remotely.
-    throw new LinkedInPublishError("LinkedIn request outcome is unknown; reconcile the post before retrying.", null, false);
+    throw new LinkedInPublishError("LinkedIn request outcome is unknown; reconcile the post before retrying.", null, false, true);
   }
   const responseBody = await response.text();
   if (!response.ok) {
