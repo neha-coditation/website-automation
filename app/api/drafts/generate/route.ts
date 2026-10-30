@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     const rawGenerated = payload.choices?.[0]?.message?.content?.trim();
     const generated = rawGenerated ? sanitizeDraftHtml(rawGenerated) : "";
     if (!generated) return Response.json({ error: "The AI provider returned an empty draft." }, { status: 502 });
-    const firstLine = generated.split("\n").find(line => line.trim())?.replace(/^#\s*/, "").trim() || article.title;
+    const firstLine = draftHtmlToText(generated).split("\n").find(line => line.trim())?.replace(/^#\s*/, "").trim() || article.title;
     const title = firstLine.slice(0, 240);
     const draft = await prisma.contentDraft.create({
       data: {
