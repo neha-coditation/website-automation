@@ -1,99 +1,103 @@
 # Marketing Studio
 
-AI-assisted content operations platform for discovering topics, generating brand-aware content, reviewing and revising drafts with humans in the loop, and publishing approved content to social channels.
+Multi-tenant content operations SaaS for discovering useful stories, creating brand-aware content, human review, and approved social publishing.
 
-## Product principles
+## Five-phase delivery scope
 
-- Human approval is required before any content can be published.
-- Every generated draft retains links to its source material.
-- Each organization is isolated from every other organization.
-- Content revisions, review decisions, and publishing attempts are auditable.
-- AI providers are accessed through a replaceable server-side adapter.
+1. **Foundation:** Google sign-in, tenant-scoped workspaces, workspace switching, invitations, role checks, and brand profiles.
+2. **Discovery:** secure RSS/Atom fetching, NewsAPI search, URL normalization, tenant-scoped deduplication, saved/dismissed article states, and scheduled discovery.
+3. **AI Content Studio:** server-side OpenAI adapter, source-attributed drafts, brand voice, rewriting, rich-text editing, and immutable draft versions.
+4. **Review Studio:** assignments, comments, change requests, explicit reviewer approval, and audit events.
+5. **Social Publishing:** LinkedIn member-account OAuth, encrypted credentials, approved-only scheduling, publishing queue, attempt history, cancellation, manual retry, and scheduled worker triggers.
 
-## Initial product scope
+## Product safeguards
 
-### Release 1 — Content intelligence and creation
-1. Multi-tenant workspace foundation and roles.
-2. Brand profiles and editorial guidelines.
-3. RSS/blog/news ingestion and source attribution.
-4. Article normalization, deduplication, and topic discovery.
-5. AI-assisted content briefs and platform-specific drafts.
+- AI never approves or publishes content.
+- A scheduled post must have a recorded human approval event.
+- Every API read/write is scoped to the authenticated user's organization membership.
+- Client-supplied organization IDs are never trusted as authorization.
+- Feed fetching validates DNS/IP destinations and every redirect to reduce SSRF risk.
+- Rich-text HTML is sanitized on the server; unsafe tags and URL schemes are removed.
+- Social tokens are encrypted with AES-256-GCM and never returned to the browser.
+- Publishing retries are automatic only for an explicit LinkedIn HTTP 429 response. Network/5xx outcomes are treated as uncertain and require manual reconciliation to avoid duplicate posts.
+- AI output is a draft, not a source of truth. Source material is treated as untrusted prompt input.
 
-### Release 2 — Human review and publishing
-1. Rich-text editorial workspace with inline AI assistance.
-2. Comments, assignments, change requests, and version history.
-3. Configurable approval workflows and immutable audit events.
-4. LinkedIn account connection, scheduling, and publishing status.
+## Stack
 
-### Release 3 — Marketing operations
-1. Editorial calendar and campaigns.
-2. Additional social platform integrations.
-3. Performance analytics and recommendations.
+- Next.js 15 / React 19 / TypeScript
+- PostgreSQL (Neon) + Prisma 6
+- NextAuth Google OAuth
+- RSS/Atom parser + SSRF-safe fetcher
+- NewsAPI.org adapter
+- OpenAI Chat Completions adapter (server-side)
+- TipTap rich-text editor
+- LinkedIn OAuth 2.0 + Posts REST API adapter
+- GitHub Actions scheduled triggers for RSS discovery and publishing
 
-## Proposed technology
-
-- Next.js + TypeScript for the web application.
-- PostgreSQL (Neon) + Prisma for persistence.
-- Server-side AI provider adapter (OpenAI first; other providers optional).
-- RSS/Atom parser and one licensed news/search API.
-- Background queue and scheduled jobs for ingestion and publishing.
-- TipTap or Lexical for the editorial experience.
-- Cloudflare services where appropriate for deployment, queues, and object storage.
-
-## Architecture boundaries
-
-- **Discovery:** fetch, normalize, deduplicate, and score source material.
-- **Brand context:** store organization-specific voice, audience, terminology, and restrictions.
-- **AI gateway:** prompt templates, provider adapters, schema validation, usage/cost logging.
-- **Editorial workflow:** drafts, versions, comments, review assignments, approvals, audit events.
-- **Publishing:** authorized platform connections, scheduling, idempotency, retries, and result tracking.
-- **Analytics:** persist only metrics available through the connected platform APIs.
-
-## Non-negotiable safeguards
-
-- AI cannot approve or publish content.
-- Only authorized users can approve or publish.
-- All organization-owned records must be tenant-scoped and authorization-checked.
-- Never expose provider or social-platform secrets to the browser.
-- Publishing retries must be idempotent and must account for uncertain prior outcomes.
-- AI quality scores are advisory, not proof of factual accuracy.
-- Treat source webpages and uploaded documents as untrusted input.
-
-## Development approach
-
-Build and test one vertical slice at a time. Start with the application foundation and workspace/brand configuration, then add discovery, generation, review, and publishing. Do not add advanced agents or multiple model vendors until the basic workflow is reliable.
-
-## Local development
+## Local setup
 
 Requirements: Node.js 20.9+ and npm.
 
 ```bash
 git clone https://github.com/neha-coditation/website-automation.git
 cd website-automation
+git switch feature/marketing-studio-phases-1-5
 npm install
 cp .env.example .env.local
-npm run dev
 ```
 
-Open http://localhost:3000. The dashboard still uses illustrative sample data; authentication, discovery UI, AI generation, and publishing are not connected yet. The Prisma schema now defines the first persistence layer for organizations, memberships, brand profiles, content sources, and discovered articles.
+Configure these server-side environment values in `.env.local`:
 
-After adding your Neon connection string to `.env.local`, run:
+- `DATABASE_URL`: Neon PostgreSQL pooled connection string.
+- `NEXTAUTH_URL` and `NEXTAUTH_SECRET`.
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: Google OAuth web application credentials; add `http://localhost:3000/api/auth/callback/google` as an authorized redirect URI.
+- `OPENAI_API_KEY`: required only for AI generation/rewrite.
+- `NEWS_API_KEY`: required only for NewsAPI search.
+- `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, and `LINKEDIN_REDIRECT_URI`: LinkedIn developer app credentials; add the callback URL to the LinkedIn app.
+- `LINKEDIN_API_VERSION`: a currently supported LinkedIn API version in `YYYYMM` format.
+- `SOCIAL_TOKEN_ENCRYPTION_KEY`: generate with `openssl rand -base64 32`.
+- `CRON_SECRET`: generate a strong random secret, for example `openssl rand -hex 32`.
+
+Then run:
 
 ```bash
 npm run db:generate
-npm run db:migrate
+npm run db:migrate -- --name marketing_studio_phases_1_5
+npm run dev
 ```
 
-Use `npm run db:studio` to inspect the local database schema and records. Do not run migrations against production until the schema has been reviewed.
+Open http://localhost:3000. Sign in with Google. Your first workspace is provisioned after sign-in.
 
-The first discovery utility is available at `lib/discovery/parse-rss-feed.ts`. It parses already-fetched RSS 2.0 or Atom XML, normalizes article URLs, removes common tracking parameters, and skips entries without a usable URL or title. Network fetching is intentionally separate; a future source-fetching service must validate destinations and prevent server-side request forgery before requesting user-supplied feed URLs. Run its unit tests with `npm test`.
+## Scheduled jobs
 
-Useful checks:
+The GitHub Actions workflow `.github/workflows/marketing-studio-cron.yml` calls:
+
+- `POST /api/cron/publish` every five minutes.
+- `POST /api/cron/discovery` twice per hour.
+
+After deploying the application, add these GitHub repository Actions secrets:
+
+- `MARKETING_STUDIO_SITE_URL`: deployed application origin, without a trailing slash.
+- `MARKETING_STUDIO_CRON_SECRET`: the same value as the server's `CRON_SECRET`.
+
+Scheduled workflows run only after the workflow is merged into the repository's default branch. The jobs can also be started manually from GitHub Actions.
+
+## Validation
 
 ```bash
+npm test
+npm run db:generate
 npm run typecheck
 npm run lint
 npm run build
 ```
 
-Never commit `.env.local` or provider credentials.
+The automated checks run on pull requests. A successful build does not replace configuring Google, Neon, OpenAI, NewsAPI, LinkedIn, and the scheduled-job secrets.
+
+## Current integration limits
+
+- Initial social publishing supports LinkedIn member profiles with the `w_member_social` permission; organization-page publishing requires additional LinkedIn products/scopes and is not enabled here.
+- LinkedIn token refresh is not implemented; reconnect an account when its access token expires.
+- NewsAPI results are searched on demand; RSS/Atom sources are scheduled.
+- No production database migration or third-party OAuth connection is performed by repository code alone.
+- Analytics and multi-channel integrations remain outside this five-phase release scope.
