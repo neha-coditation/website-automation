@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
+import { canInviteRole, normalizeInvitationEmail } from "@/lib/workspace-policy";
 
 export async function GET() {
   try {
@@ -28,11 +29,8 @@ export async function POST(request: Request) {
     if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return Response.json({ error: "Enter a valid email address." }, { status: 400 });
     }
-    if (!new Set<OrganizationRole>([OrganizationRole.ADMIN, OrganizationRole.EDITOR, OrganizationRole.REVIEWER, OrganizationRole.VIEWER]).has(role)) {
-      return Response.json({ error: "Choose an allowed team role." }, { status: 400 });
-    }
-    if (workspace.role === OrganizationRole.ADMIN && role === OrganizationRole.ADMIN) {
-      return Response.json({ error: "Only workspace owners can invite another admin." }, { status: 403 });
+    if (!canInviteRole(workspace.role, role)) {
+      return Response.json({ error: "You cannot invite a member with that role." }, { status: 403 });
     }
     const existing = await prisma.membership.findFirst({
       where: { organizationId: workspace.organization.id, user: { email } },
