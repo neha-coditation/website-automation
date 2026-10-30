@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
-import { requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
+import { OrganizationRole } from "@prisma/client";\nimport { prisma } from "@/lib/prisma";
+import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 export async function GET() {
   try {
