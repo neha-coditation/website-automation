@@ -48,7 +48,7 @@ export async function POST(request: Request, context: Context) {
     const body = rawBody ? sanitizeDraftHtml(rawBody) : "";
     if (!body) return Response.json({ error: "AI provider returned an empty rewrite." }, { status: 502 });
     const nextVersion = draft.currentVersion + 1;
-    const title = body.split("\n").find(line => line.trim())?.replace(/^#\s*/, "").trim().slice(0, 240) || draft.title;
+    const title = draftHtmlToText(body).split("\n").find(line => line.trim())?.replace(/^#\s*/, "").trim().slice(0, 240) || draft.title;
     const result = await prisma.$transaction(async tx => {
       const updated = await tx.contentDraft.updateMany({
         where: { id: draft.id, organizationId: workspace.organization.id, currentVersion: draft.currentVersion, status: { in: [ContentStatus.DRAFT, ContentStatus.CHANGES_REQUESTED] } },
