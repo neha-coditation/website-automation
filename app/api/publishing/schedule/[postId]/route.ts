@@ -1,12 +1,12 @@
-import { PublishStatus, ContentStatus } from "@prisma/client";
+import { PublishStatus, ContentStatus, OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
+import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 type Context = { params: Promise<{ postId: string }> };
 
 export async function DELETE(_request: Request, context: Context) {
   try {
-    const workspace = await requireWorkspace();
+    const workspace = await requireWorkspace();\n    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);
     const { postId } = await context.params;
     const result = await prisma.$transaction(async tx => {
       const post = await tx.scheduledPost.findFirst({ where: { id: postId, organizationId: workspace.organization.id } });
