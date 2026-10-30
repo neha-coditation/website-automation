@@ -15,7 +15,11 @@ export async function POST(_request: Request, context: Context) {
       if (draft.status !== ContentStatus.DRAFT && draft.status !== ContentStatus.CHANGES_REQUESTED) {
         return { error: "Only editable drafts can be submitted for review.", status: 409 as const };
       }
-      await tx.contentDraft.update({ where: { id: draftId }, data: { status: ContentStatus.IN_REVIEW } });
+      const changed = await tx.contentDraft.updateMany({
+        where: { id: draftId, organizationId: workspace.organization.id, status: { in: [ContentStatus.DRAFT, ContentStatus.CHANGES_REQUESTED] } },
+        data: { status: ContentStatus.IN_REVIEW },
+      });
+      if (!changed.count) return { error: "Draft state changed. Reload the queue.", status: 409 as const };
       await tx.approvalEvent.create({ data: { draftId, actorId: workspace.userId, action: "SUBMITTED_FOR_REVIEW" } });
       await tx.auditEvent.create({ data: { organizationId: workspace.organization.id, actorId: workspace.userId, action: "SUBMITTED_FOR_REVIEW", entityType: "ContentDraft", entityId: draftId } });
       return { submitted: true };
