@@ -11,17 +11,23 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/marketing_studio?schema=public
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Generate Prisma client
         run: npm run db:generate
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      - name: Verify committed database migration
+        run: test -s prisma/migrations/0001_initial/migration.sql && test -s prisma/migrations/migration_lock.toml
       - name: Unit tests
         run: npm test
       - name: Type check

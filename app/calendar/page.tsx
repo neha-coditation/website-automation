@@ -1,0 +1,35 @@
+"use client";
+
+import { useEffect, useState, type FormEvent } from "react";
+import { AppNav } from "@/components/app-nav";
+
+type Account={id:string;provider:string;displayName:string;tokenExpiresAt:string|null;isActive:boolean;disconnectedAt:string|null};
+type Draft={id:string;title:string;status:string};
+type Post={id:string;status:string;scheduledAt:string;lastError:string|null;outcomeUncertain:boolean;attemptCount:number;attempts:{attemptNumber:number;status:string;responseCode:number|null;errorMessage:string|null}[];draft:{title:string};socialAccount:{displayName:string}};
+export default function CalendarPage(){
+ const [accounts,setAccounts]=useState<Account[]>([]);const [drafts,setDrafts]=useState<Draft[]>([]);const [posts,setPosts]=useState<Post[]>([]);const [draftId,setDraftId]=useState("");const [accountId,setAccountId]=useState("");const [scheduledAt,setScheduledAt]=useState("");const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);
+ async function load(){const [a,d,p]=await Promise.all([fetch("/api/social-accounts"),fetch("/api/drafts"),fetch("/api/publishing/schedule")]);const ad=await a.json(),dd=await d.json(),pd=await p.json();if(a.ok){setAccounts(ad.accounts);if(!accountId&&ad.accounts[0])setAccountId(ad.accounts[0].id);}if(d.ok){const approved=dd.drafts.filter((x:Draft)=>x.status==="APPROVED");setDrafts(approved);if(!draftId&&approved[0])setDraftId(approved[0].id);}if(p.ok)setPosts(pd.posts);}
+ useEffect(()=>{
+  const status=new URLSearchParams(window.location.search).get("linkedin");
+  const messages:Record<string,string>={
+   connected:"LinkedIn account connected successfully.",
+   cancelled:"LinkedIn connection was cancelled.",
+   "invalid-state":"LinkedIn connection expired or could not be verified. Please try again.",
+   "not-configured":"LinkedIn OAuth is missing server configuration.",
+   "token-error":"LinkedIn could not exchange the authorization code. Please reconnect.",
+   "missing-permission":"LinkedIn did not grant the w_member_social permission required to publish.",
+   "profile-error":"LinkedIn account details could not be loaded.",
+   error:"LinkedIn connection failed. Please try again."
+  };
+  if(status&&messages[status])setMessage(messages[status]);
+  void load();
+ },[]);
+ async function schedule(e:FormEvent){e.preventDefault();setBusy(true);setMessage("");const r=await fetch("/api/publishing/schedule",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({draftId,socialAccountId:accountId,scheduledAt:new Date(scheduledAt).toISOString()})});const d=await r.json();if(!r.ok)setMessage(d.error||"Could not schedule post.");else{setMessage("Approved post added to the publishing queue.");setScheduledAt("");await load();}setBusy(false);}
+ async function disconnect(id:string){if(!window.confirm("Disconnect this LinkedIn account from the workspace? Existing publishing history will be kept."))return;setBusy(true);const r=await fetch("/api/social-accounts",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountId:id})});const d=await r.json();setMessage(r.ok?"LinkedIn account disconnected.":d.error||"Could not disconnect account.");await load();setBusy(false);}
+ async function postAction(post:Post,action:"cancel"|"retry"){if(action==="retry"&&post.outcomeUncertain&&!window.confirm("The previous LinkedIn request may have succeeded. First verify that the post is not already on LinkedIn. Have you confirmed that no post exists?"))return;setBusy(true);const r=await fetch(`/api/publishing/schedule/${post.id}${action==="retry"?"/retry":""}`,{method:action==="cancel"?"DELETE":"POST",headers:{"Content-Type":"application/json"},body:action==="retry"?JSON.stringify({confirmNoRemotePost:post.outcomeUncertain}):undefined});const d=await r.json();setMessage(r.ok?(action==="cancel"?"Post cancelled.":"Post queued for manual retry."):d.error||"Action failed.");await load();setBusy(false);}
+ return <main className="workspace-page"><AppNav/><div className="workspace-content"><p className="eyebrow">PHASE 5 · SOCIAL PUBLISHING</p><h1>Publishing calendar</h1><p className="page-intro">Connect LinkedIn, schedule only approved drafts, and inspect publishing attempts and failures.</p>{message&&<p className="inline-message" role="status">{message}</p>}
+ <section className="workspace-list"><h2>Connected accounts</h2>{accounts.length===0?<p className="empty-state">No LinkedIn account connected yet. Configure the LinkedIn OAuth environment values, then connect an account.</p>:accounts.map(a=><div className="workspace-list-row" key={a.id}><div><strong>{a.displayName}</strong><small>LinkedIn · {a.isActive?"Connected":"Disconnected"} · Expires {a.tokenExpiresAt?new Date(a.tokenExpiresAt).toLocaleString():"unknown"}</small></div>{a.isActive&&<button className="secondary-button compact" disabled={busy} onClick={()=>disconnect(a.id)}>Disconnect</button>}</div>)}<a className="primary-button inline-button" href="/api/integrations/linkedin/connect">Connect LinkedIn</a></section>
+ <section className="workspace-list"><h2>Schedule approved content</h2>{drafts.length===0||accounts.filter(a=>a.isActive).length===0?<p className="empty-state">You need an approved draft and a connected LinkedIn account before scheduling.</p>:<form className="workspace-form schedule-form" onSubmit={schedule}><label>Approved draft<select value={draftId} onChange={e=>setDraftId(e.target.value)}>{drafts.map(d=><option key={d.id} value={d.id}>{d.title}</option>)}</select></label><label>LinkedIn account<select value={accountId} onChange={e=>setAccountId(e.target.value)}>{accounts.filter(a=>a.isActive).map(a=><option key={a.id} value={a.id}>{a.displayName}</option>)}</select></label><label>Publish date and time<input type="datetime-local" value={scheduledAt} onChange={e=>setScheduledAt(e.target.value)} required/></label><button className="primary-button" disabled={busy}>Schedule post</button></form>}</section>
+ <section className="workspace-list"><h2>Queue and history <span>{posts.length}</span></h2>{posts.length===0?<p className="empty-state">No scheduled posts yet.</p>:posts.map(p=><article className="workspace-list-row" key={p.id}><div><strong>{p.draft.title}</strong><small>{p.socialAccount.displayName} · {new Date(p.scheduledAt).toLocaleString()} · {p.status}</small>{p.lastError&&<small className="error-text">{p.lastError}</small>}<small>{p.attemptCount} attempt(s) · {p.attempts.map(a=>`#${a.attemptNumber} ${a.status}`).join(" · ")}</small></div>{p.status==="QUEUED"?<button className="secondary-button compact" disabled={busy} onClick={()=>postAction(p,"cancel")}>Cancel</button>:p.status==="FAILED"?<button className="secondary-button compact" disabled={busy} onClick={()=>postAction(p,"retry")}>Retry manually</button>:null}</article>)}</section>
+ </div></main>;
+}
