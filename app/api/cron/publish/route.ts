@@ -106,7 +106,7 @@ export async function POST(request: Request) {
       if (post.draft.status !== ContentStatus.SCHEDULED || post.draft.approvals.length === 0) {
         throw new Error("Publishing blocked: the draft is not scheduled with a recorded human approval.");
       }
-      if (post.socialAccount.tokenExpiresAt && post.socialAccount.tokenExpiresAt <= now) {
+      if (!post.socialAccount.isActive || !post.socialAccount.encryptedAccessToken || (post.socialAccount.tokenExpiresAt && post.socialAccount.tokenExpiresAt <= now)) {
         throw new Error("LinkedIn access token expired; reconnect the account.");
       }
       const token = decryptSecret(post.socialAccount.encryptedAccessToken);
