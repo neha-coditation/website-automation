@@ -62,9 +62,11 @@ Then run:
 
 ```bash
 npm run db:generate
-npm run db:migrate -- --name marketing_studio_phases_1_5
+npm run db:migrate
 npm run dev
 ```
+
+For a deployed environment, apply committed migrations with `npm run db:deploy` after configuring `DATABASE_URL`.
 
 Open http://localhost:3000. Sign in with Google. Your first workspace is provisioned after sign-in.
 
