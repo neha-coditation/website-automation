@@ -17,10 +17,11 @@ export async function DELETE(_request: Request, context: Context) {
       if (post.status !== PublishStatus.QUEUED) {
         return { error: "Only queued posts can be cancelled.", status: 409 as const };
       }
-      await tx.scheduledPost.update({
-        where: { id: post.id },
+      const cancelled = await tx.scheduledPost.updateMany({
+        where: { id: post.id, organizationId: workspace.organization.id, status: PublishStatus.QUEUED },
         data: { status: PublishStatus.CANCELLED, lockedAt: null },
       });
+      if (!cancelled.count) return { error: "Post has already started publishing and can no longer be cancelled.", status: 409 as const };
       await tx.contentDraft.updateMany({
         where: { id: post.draftId, organizationId: workspace.organization.id, status: ContentStatus.SCHEDULED },
         data: { status: ContentStatus.APPROVED, scheduledAt: null },
