@@ -186,6 +186,7 @@ model ContentSource {
   type           SourceType
   status         SourceStatus @default(ACTIVE)
   lastFetchedAt  DateTime?
+  lastAttemptAt  DateTime?
   lastError      String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
