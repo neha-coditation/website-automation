@@ -32,10 +32,11 @@ async function resolvePublicAddress(hostname: string): Promise<{ address: string
     throw new Error("Local network feed URLs are not allowed.");
   }
 
-  const literalFamily = ipaddr.isValid(hostname) ? ipaddr.parse(hostname).kind() === "ipv4" ? 4 : 6 : 0;
+  const normalizedHost = hostname.replace(/^\\[|\\]$/g, "");
+  const literalFamily = ipaddr.isValid(normalizedHost) ? ipaddr.parse(normalizedHost).kind() === "ipv4" ? 4 : 6 : 0;
   const records = literalFamily
     ? [{ address: hostname, family: literalFamily }]
-    : await lookup(hostname, { all: true, verbatim: true });
+    : await lookup(normalizedHost, { all: true, verbatim: true });
 
   if (records.length === 0 || records.some((record) => !isPublicAddress(record.address))) {
     throw new Error("The feed hostname resolves to a non-public or restricted IP address.");
@@ -53,7 +54,7 @@ function requestOnce(url: URL, address: { address: string; family: number }): Pr
     const transport = url.protocol === "https:" ? https : http;
     const options: RequestOptions = {
       protocol: url.protocol,
-      hostname: url.hostname,
+      hostname: url.hostname.replace(/^\\[|\\]$/g, ""),
       port: url.port || undefined,
       path: `${url.pathname}${url.search}`,
       method: "GET",
@@ -66,7 +67,7 @@ function requestOnce(url: URL, address: { address: string; family: number }): Pr
       lookup: ((_hostname: string, _options: unknown, callback: (error: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
         callback(null, address.address, address.family);
       }) as RequestOptions["lookup"],
-      ...(url.protocol === "https:" ? { servername: url.hostname } : {}),
+      ...(url.protocol === "https:" && !url.hostname.startsWith("[") ? { servername: url.hostname } : {}),
     };
 
     const req = transport.request(options, (res) => {
