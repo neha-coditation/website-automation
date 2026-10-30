@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 
 const links = [
   ["Overview", "/"],
@@ -16,7 +17,7 @@ export function AppNav() {
     <nav className="workspace-nav">
       <Link href="/" className="workspace-wordmark">✦ Marketing Studio</Link>
       <div>{links.map(([label, href]) => <Link key={href} href={href}>{label}</Link>)}</div>
-      <Link href="/api/auth/signout">Sign out</Link>
+      <button className="signout-link" onClick={() => signOut({ callbackUrl: "/login" })}>Sign out</button>
     </nav>
   );
 }
