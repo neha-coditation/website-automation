@@ -10,7 +10,7 @@ export async function GET() {
       where: { organizationId: workspace.organization.id },
       include: {
         draft: { select: { id: true, title: true, status: true, channel: true } },
-        socialAccount: { select: { id: true, provider: true, displayName: true } },
+        socialAccount: { select: { id: true, provider: true, displayName: true } },\n        attempts: { orderBy: { attemptNumber: "desc" }, take: 5, select: { attemptNumber: true, status: true, responseCode: true, errorMessage: true, finishedAt: true } },
       },
       orderBy: { scheduledAt: "asc" },
       take: 100,
