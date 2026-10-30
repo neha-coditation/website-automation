@@ -15,6 +15,8 @@ export async function GET() {
         profileUrl: true,
         scopes: true,
         tokenExpiresAt: true,
+        isActive: true,
+        disconnectedAt: true,
         createdAt: true,
       },
       orderBy: { createdAt: "desc" },
@@ -31,10 +33,11 @@ export async function DELETE(request: Request) {
     assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN]);
     const body = await request.json() as { accountId?: string };
     if (!body.accountId) return Response.json({ error: "accountId is required." }, { status: 400 });
-    const result = await prisma.socialAccount.deleteMany({
-      where: { id: body.accountId, organizationId: workspace.organization.id },
+    const result = await prisma.socialAccount.updateMany({
+      where: { id: body.accountId, organizationId: workspace.organization.id, isActive: true },
+      data: { isActive: false, disconnectedAt: new Date(), encryptedAccessToken: null, encryptedRefreshToken: null },
     });
-    if (!result.count) return Response.json({ error: "Connected account not found." }, { status: 404 });
+    if (!result.count) return Response.json({ error: "Active connected account not found." }, { status: 404 });
     return Response.json({ disconnected: true });
   } catch (error) {
     return workspaceErrorResponse(error);
