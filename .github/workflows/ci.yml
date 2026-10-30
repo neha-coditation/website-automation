@@ -26,6 +26,8 @@ jobs:
         run: npm run db:generate
       - name: Validate Prisma schema
         run: npx prisma validate
+      - name: Verify committed database migration
+        run: test -s prisma/migrations/0001_initial/migration.sql && test -s prisma/migrations/migration_lock.toml
       - name: Unit tests
         run: npm test
       - name: Type check
