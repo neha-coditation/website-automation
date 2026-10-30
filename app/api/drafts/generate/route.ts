@@ -1,14 +1,12 @@
 import { OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sanitizeDraftHtml } from "@/lib/content/sanitize";
-import { requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
+import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 export async function POST(request: Request) {
   try {
     const workspace = await requireWorkspace();
-    if (![OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR].includes(workspace.role)) {
-      return Response.json({ error: "You do not have permission to generate content." }, { status: 403 });
-    }
+    assertRole(workspace.role, [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]);
     if (!process.env.OPENAI_API_KEY) {
       return Response.json({ error: "AI generation is not configured. Add OPENAI_API_KEY on the server." }, { status: 503 });
     }
