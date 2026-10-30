@@ -21,8 +21,8 @@ export async function GET(request: Request) {
     const incoming = new URL(request.url);
     const query = incoming.searchParams.get("q")?.trim().slice(0, 200);
     if (!query || query.length < 2) return Response.json({ error: "Enter a search query with at least 2 characters." }, { status: 400 });
-    const params = new URLSearchParams({ q: query, language: "en", sortBy: "publishedAt", pageSize: "20", apiKey });
-    const response = await fetch(`https://newsapi.org/v2/everything?${params}`, { signal: AbortSignal.timeout(20_000) });
+    const params = new URLSearchParams({ q: query, language: "en", sortBy: "publishedAt", pageSize: "20" });
+    const response = await fetch(`https://newsapi.org/v2/everything?${params}`, { headers: { "X-Api-Key": apiKey }, signal: AbortSignal.timeout(20_000) });
     if (!response.ok) {
       console.error("News API request failed", response.status, (await response.text()).slice(0, 300));
       return Response.json({ error: "News provider search failed. Check the API plan and key." }, { status: 502 });
