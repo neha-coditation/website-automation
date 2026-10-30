@@ -1,5 +1,6 @@
 import { ContentStatus, OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { sanitizeDraftHtml } from "@/lib/content/sanitize";
 import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 type Context = { params: Promise<{ draftId: string }> };
@@ -11,7 +12,7 @@ export async function PATCH(request: Request, context: Context) {
     const { draftId } = await context.params;
     const input = await request.json() as { title?: string; body?: string; expectedVersion?: number };
     const title = input.title?.trim();
-    const body = input.body?.trim();
+    const body = input.body ? sanitizeDraftHtml(input.body).trim() : "";
     if (!title || title.length > 240 || !body || body.length > 100_000 || !Number.isInteger(input.expectedVersion)) {
       return Response.json({ error: "Valid title, body and expectedVersion are required." }, { status: 400 });
     }
