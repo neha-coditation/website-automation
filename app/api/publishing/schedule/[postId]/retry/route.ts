@@ -28,7 +28,7 @@ export async function POST(request: Request, context: Context) {
         select: { id: true },
       });
       if (!approval) return { error: "The draft no longer has an approval record.", status: 409 as const };
-      if (post.socialAccount.tokenExpiresAt && post.socialAccount.tokenExpiresAt <= new Date()) {
+      if (!post.socialAccount.isActive || !post.socialAccount.encryptedAccessToken || (post.socialAccount.tokenExpiresAt && post.socialAccount.tokenExpiresAt <= new Date())) {
         return { error: "Reconnect the LinkedIn account before retrying.", status: 409 as const };
       }
       await tx.scheduledPost.update({
