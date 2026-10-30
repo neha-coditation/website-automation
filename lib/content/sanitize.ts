@@ -18,8 +18,12 @@ export function sanitizeDraftHtml(value: string): string {
 }
 
 export function draftHtmlToText(value: string): string {
-  return he.decode(sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }))
-    .replace(/\s+\n/g, "\n")
+  const withParagraphBreaks = value
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<li\b[^>]*>/gi, "• ")
+    .replace(/<\/(?:p|h[1-6]|li|blockquote|pre)>/gi, "\n");
+  return he.decode(sanitizeHtml(withParagraphBreaks, { allowedTags: [], allowedAttributes: {} }))
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
