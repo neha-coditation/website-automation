@@ -1,0 +1,18 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { AppNav } from "@/components/app-nav";
+
+type Draft={id:string;title:string;body:string;status:string;channel:string;currentVersion:number;createdBy:{name:string|null};_count:{comments:number}};
+type Comment={id:string;body:string;createdAt:string;user:{name:string|null}};
+export default function ReviewPage(){
+ const [drafts,setDrafts]=useState<Draft[]>([]);const [comments,setComments]=useState<Record<string,Comment[]>>({});const [notes,setNotes]=useState<Record<string,string>>({});const [message,setMessage]=useState("");const [busy,setBusy]=useState("");
+ async function load(){const r=await fetch("/api/drafts");const d=await r.json();if(r.ok){setDrafts(d.drafts);for(const item of d.drafts){const c=await fetch(`/api/drafts/${item.id}/comments`);const cd=await c.json();if(c.ok)setComments(old=>({...old,[item.id]:cd.comments}));}}else setMessage(d.error||"Could not load review queue.");}
+ useEffect(()=>{void load();},[]);
+ async function action(id:string,path:string){setBusy(id);setMessage("");const r=await fetch(`/api/drafts/${id}/${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({note:notes[id]||""})});const d=await r.json();if(!r.ok)setMessage(d.error||"Action failed.");else{setMessage(path==="approve"?"Content approved. It can now be scheduled.":path==="submit"?"Draft submitted for review.":"Changes requested.");await load();}setBusy("");}
+ async function comment(id:string){const body=notes[id]?.trim();if(!body)return;setBusy(id);const r=await fetch(`/api/drafts/${id}/comments`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({body})});const d=await r.json();if(!r.ok)setMessage(d.error||"Comment failed.");else{setNotes(old=>({...old,[id]:""}));setComments(old=>({...old,[id]:[...(old[id]||[]),d.comment]}));}setBusy("");}
+ const visible=drafts.filter(d=>!["PUBLISHED","ARCHIVED","FAILED"].includes(d.status));
+ return <main className="workspace-page"><AppNav/><div className="workspace-content"><p className="eyebrow">PHASE 4 · HUMAN REVIEW</p><h1>Review studio</h1><p className="page-intro">Reviewers make the decision. Content cannot be scheduled until an authorized human approves it.</p>{message&&<p className="inline-message" role="status">{message}</p>}
+ <section className="workspace-list"><h2>Editorial queue <span>{visible.length}</span></h2>{visible.length===0?<p className="empty-state">No drafts need attention right now.</p>:visible.map(d=><article className="review-card" key={d.id}><div className="review-heading"><div><span className="article-source">{d.channel} · {d.status.replaceAll("_"," ")}</span><h3>{d.title}</h3></div><span className="version-chip">v{d.currentVersion}</span></div><p className="review-body">{d.body}</p><div className="comment-list">{(comments[d.id]||[]).map(c=><div key={c.id}><strong>{c.user.name||"Teammate"}</strong><span>{c.body}</span></div>)}</div><textarea value={notes[d.id]||""} onChange={e=>setNotes(old=>({...old,[d.id]:e.target.value}))} rows={2} placeholder="Add a comment or reviewer note…"/><div className="article-actions">{d.status==="DRAFT"||d.status==="CHANGES_REQUESTED"?<button disabled={busy===d.id} onClick={()=>action(d.id,"submit")}>Submit for review</button>:null}{d.status==="IN_REVIEW"?<><button disabled={busy===d.id} onClick={()=>comment(d.id)}>Comment</button><button disabled={busy===d.id} onClick={()=>action(d.id,"request-changes")}>Request changes</button><button className="primary-button" disabled={busy===d.id} onClick={()=>action(d.id,"approve")}>Approve</button></>:<button disabled={busy===d.id} onClick={()=>comment(d.id)}>Comment</button>}</div></article>)}</section>
+ </div></main>;
+}
