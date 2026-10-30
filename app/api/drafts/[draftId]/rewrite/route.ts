@@ -1,7 +1,7 @@
 import { ContentStatus, OrganizationRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sanitizeDraftHtml } from "@/lib/content/sanitize";
-import { requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
+import { assertRole, requireWorkspace, workspaceErrorResponse } from "@/lib/workspace";
 
 type Context = { params: Promise<{ draftId: string }> };
 
@@ -23,7 +23,7 @@ export async function POST(request: Request, context: Context) {
       include: { sourceArticle: true },
     });
     if (!draft) return Response.json({ error: "Draft not found." }, { status: 404 });
-    if (![ContentStatus.DRAFT, ContentStatus.CHANGES_REQUESTED].includes(draft.status)) {
+    if (!draft.status !== ContentStatus.DRAFT && draft.status !== ContentStatus.CHANGES_REQUESTED) {
       return Response.json({ error: "Only editable drafts can be rewritten." }, { status: 409 });
     }
     if (draft.currentVersion !== input.expectedVersion) return Response.json({ error: "Draft version conflict. Reload before rewriting." }, { status: 409 });
